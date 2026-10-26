@@ -38,6 +38,34 @@
   ensure("sessionStorage");
 })();
 </script>
+<script>
+(function(){
+  function dbg(msg){
+    var el = document.getElementById("dol-debug");
+    var line = new Date().toISOString().slice(11,19) + " " + msg;
+    if (el) el.textContent = (el.textContent ? el.textContent + "\n" : "") + line;
+    try { console.log("[DOL-DEBUG]", msg); } catch(e){}
+  }
+  window.__dolDbg = dbg;
+  dbg("script: debug logger ready");
+  document.addEventListener("DOMContentLoaded", function(){ dbg("event: DOMContentLoaded"); });
+  window.addEventListener("load", function(){ dbg("event: window load"); });
+  setTimeout(function(){ dbg("timer: +1s"); }, 1000);
+  setTimeout(function(){ dbg("timer: +3s"); }, 3000);
+  setTimeout(function(){ dbg("timer: +8s"); }, 8000);
+  setTimeout(function(){ dbg("timer: +15s"); }, 15000);
+  var checks = 0;
+  var iv = setInterval(function(){
+    checks++;
+    var sc = typeof SugarCube !== "undefined";
+    var st = typeof State !== "undefined";
+    var eng = typeof Engine !== "undefined";
+    dbg("poll " + checks + " SugarCube=" + sc + " State=" + st + " Engine=" + eng);
+    if (sc || checks >= 12) clearInterval(iv);
+  }, 2000);
+})();
+</script>
+
 
 <meta charset="UTF-8" />
 <title>Degrees of Lewdity Plus</title>
@@ -16597,7 +16625,7 @@ details.expandMenu[open] summary.expandMenu::before {
 	<div id="init-screen">
 		<div id="init-no-js"><noscript>JavaScript must be enabled to play.</noscript></div>
 		<div id="init-lacking"><p>Browser lacks capabilities required to play.</p><p>Upgrade or switch to another browser.</p></div>
-		<div id="init-loading"><div>Loading&hellip;</div></div>
+		<div id="init-loading"><div>Loading&hellip;</div><div id="dol-debug" style="margin-top:8px;font-size:13px;color:#ccc;white-space:pre-wrap;">debug: page started</div></div>
 	</div>
 	<!-- UUID://A6AFB52D-38F2-4CB5-86A8-54BF665670D6// --><tw-storydata name="Degrees of Lewdity Plus" startnode="5" creator="Tweego" creator-version="2.1.1" ifid="A6AFB52D-38F2-4CB5-86A8-54BF665670D6" zoom="1" format="SugarCube" format-version="2.36.1" options="" hidden><style role="stylesheet" id="twine-user-stylesheet" type="text/twine-css">/* twine-user-stylesheet #1: "game/00-framework-tools/01-error/error.css" */
 #error-reporter-container {
