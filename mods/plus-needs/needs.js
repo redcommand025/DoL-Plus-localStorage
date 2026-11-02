@@ -35,6 +35,39 @@
 	}
 	window.plusNeedsInit = init;
 
+	/* Lifetime statistics shown on the Statistics page ("Needs" foldout). */
+	const STAT_KEYS = ["mlTotal", "drinks", "meals", "snacks", "kcal", "pees", "poops", "accWet", "accSoiled", "accBoth", "zeroHunger", "zeroThirst", "mlToday"];
+	function stats() {
+		const V = State.variables;
+		if (!V.plusNeedsStats || typeof V.plusNeedsStats !== "object") V.plusNeedsStats = {};
+		const S = V.plusNeedsStats;
+		for (const k of STAT_KEYS) if (!Number.isFinite(S[k])) S[k] = 0;
+		const day = dayKey();
+		if (S.mlTodayDay !== day) {
+			S.mlTodayDay = day;
+			S.mlToday = 0;
+		}
+		return S;
+	}
+	function dayKey() {
+		try {
+			if (typeof Time !== "undefined" && Number.isFinite(Time.days)) return Time.days;
+		} catch (e) {}
+		return Math.floor((State.variables.timeStamp || 0) / 86400);
+	}
+	window.plusNeedsStats = stats;
+	/* Millilitres per drink. Keys are prop names (see PROPS below) plus a few special sources. */
+	const ML = {
+		"water bottle": 500, "water bottle open": 500, tap: 250, "kitchen water": 250, "meal drink": 200,
+		coffee: 250, tea: 250, "travel cup": 300, "thermos open": 300, "hot cocoa": 250, "bottle of milk": 300,
+		juice: 250, lemonade: 330, "strawberry lemonade": 330, milkshake: 400, "fizzy drink": 330, "soft drink": 330,
+		"solo cup": 350, "beer mug": 500, "beer bottle": 330, "autumn ale": 500, "fruity ale": 500, "winter ale": 500,
+		shandy: 500, cider: 330, "hot cider": 250, "travel cup cider": 300, "red wine": 175, "white wine": 175,
+		champagne: 150, "strawberry cocktail": 200, shot: 30, whisky: 30, brandy: 30, vodka: 30, scotch: 30,
+		coconut: 300, "soup bowl": 250, salad: 0, apple: 0, pear: 0,
+	};
+	window.plusNeedsML = ML;
+
 	function clamp(v) {
 		return Math.clamp(v, 0, MAX);
 	}
@@ -54,8 +87,12 @@
 			V.plusNeedsDrift[k] = d;
 			loss[k] = RATE[k] * minutes * sleepMul * d * jitter(TICK_NOISE);
 		}
+		const S = stats();
+		const wasH = V.plusHunger, wasT = V.plusThirst;
 		V.plusHunger = clamp(V.plusHunger - loss.plusHunger);
 		V.plusThirst = clamp(V.plusThirst - loss.plusThirst);
+		if (wasH > 0 && V.plusHunger <= 0) S.zeroHunger++;
+		if (wasT > 0 && V.plusThirst <= 0) S.zeroThirst++;
 		if (V.plusHunger <= 0 || V.plusThirst <= 0) {
 			// Light effect: running on empty makes you tired.
 			try {
@@ -70,6 +107,9 @@
 			if (longPass && v <= 0) v = Math.min(V[k], LONG_PASS_FLOOR);
 			V[k] = clamp(v);
 			if (V[k] <= 0) {
+				if (k === "plusBladder") S.accWet++;
+				else S.accSoiled++;
+				if (V.plusAccident && V.plusAccident !== k) S.accBoth++;
 				// Bladder and bowels on the same tick (or before the notice is shown) produce one combined notice.
 				V.plusAccident = V.plusAccident && V.plusAccident !== k ? "both" : k;
 				V[k] = MAX;
@@ -78,10 +118,24 @@
 	};
 
 	/* Eating and drinking. hunger/thirst = points restored. */
-	window.plusNeedsConsume = function (hunger = 0, thirst = 0) {
+	/* kind: "meal" | "snack" | "drink" (auto-detected if omitted); ml: millilitres drunk (auto if omitted). */
+	window.plusNeedsConsume = function (hunger = 0, thirst = 0, kind, ml) {
 		const V = State.variables;
 		if (!V) return;
 		init();
+		try {
+			const S = stats();
+			if (!kind) kind = hunger >= 500 ? "meal" : hunger > 0 ? "snack" : thirst > 0 ? "drink" : "";
+			if (!Number.isFinite(ml)) ml = thirst > 0 ? (kind === "drink" ? ML.tap : ML["meal drink"]) : 0;
+			if (kind === "meal") S.meals++;
+			else if (kind === "snack") S.snacks++;
+			else if (kind === "drink") S.drinks++;
+			S.kcal += Math.max(0, Math.round(hunger)); // 1 hunger point ~ 1 kcal
+			S.mlTotal += ml;
+			S.mlToday += ml;
+		} catch (e) {
+			console.warn("plusNeedsStats", e);
+		}
 		hunger *= jitter(REFILL_NOISE);
 		thirst *= jitter(REFILL_NOISE);
 		V.plusHunger = clamp(V.plusHunger + hunger);
@@ -95,8 +149,15 @@
 		const V = State.variables;
 		init();
 		// Bladder is always emptied; bowels only when you need to go ("should find a toilet soon" or worse).
-		if (which !== "bowels") V.plusBladder = MAX;
-		if (which === "bowels" || (which !== "bladder" && V.plusBowels < 1000)) V.plusBowels = MAX;
+		const S = stats();
+		if (which !== "bowels") {
+			if (V.plusBladder < 1900) S.pees++;
+			V.plusBladder = MAX;
+		}
+		if (which === "bowels" || (which !== "bladder" && V.plusBowels < 1000)) {
+			S.poops++;
+			V.plusBowels = MAX;
+		}
 	};
 
 	/* Food and drink props shown via <<wearProp>>: [hunger, thirst]. Applied once per passage per prop. */
@@ -129,13 +190,20 @@
 			T.plusNeedsPropsSeen = T.plusNeedsPropsSeen || {};
 			if (T.plusNeedsPropsSeen[prop]) return;
 			T.plusNeedsPropsSeen[prop] = true;
-			window.plusNeedsConsume(v[0], v[1] * DRINK_SCALE);
+			const key = prop.toLowerCase().replace(/_/g, " ").trim();
+			const ml = Number.isFinite(ML[key]) ? ML[key] : v[1] > 0 ? (v[0] > 0 ? ML["meal drink"] : ML.tap) : 0;
+			window.plusNeedsConsume(v[0], v[1] * DRINK_SCALE, undefined, ml);
 		} catch (e) {
 			console.warn("plusNeedsProp", e);
 		}
 	};
 
-	$(document).on(":passagestart", init);
+	$(document).on(":passagestart", function () {
+		init();
+		try {
+			if (State.variables) stats();
+		} catch (e) {}
+	});
 	// Show an accident notice at the top of the next normal (non-combat) passage.
 	$(document).on(":passagerender", function (ev) {
 		const V = State.variables;

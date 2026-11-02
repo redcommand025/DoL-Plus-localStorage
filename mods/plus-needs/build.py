@@ -37,6 +37,7 @@ for p in ["Men's Toilets", "Women's Toilets", "School Boy's Toilets", "School Gi
     EDITS.append((p, "before", "<<pregnancyTest", "<<plusToiletLink>>"))
 EDITS.append(("Strip Club Bathroom", "before", "<<getouticon>>", "<<plusToiletLink>><br>"))
 EDITS.append(("mobileStats", "before", "<<if Number.isFinite($drunk) and $drunk gt 0>>", "<<plusNeedsMobile>>\n\t"))
+EDITS.append(("Statistics", "before", '<<foldout false "_miscFoldout">>', "<<plusNeedsStatistics>>\n\t"))
 EDITS.append(("Mansion Bathroom", "append", None, "<br><<plusToiletLink>>"))
 for p in ["Kitchen", "Farm Kitchen"]:
     EDITS.append((p, "before", "<<kitchenDisplay>>", "<<plusKitchenSnack>><br>"))

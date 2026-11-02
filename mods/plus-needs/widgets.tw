@@ -69,7 +69,7 @@
 <</if>>
 <<run plusNeedsToilet("both")>>
 <br><br>
-<<bathroomicon "sink">><<link [[Drink some water from the tap (0:01)|Plus Needs Toilet Drink]]>><<pass 1>><<run plusNeedsConsume(0, 300)>><</link>>
+<<bathroomicon "sink">><<link [[Drink some water from the tap (0:01)|Plus Needs Toilet Drink]]>><<pass 1>><<run plusNeedsConsume(0, 300, "drink", 250)>><</link>>
 <br>
 <<getouticon>><<link [[Finish|$plusToiletReturn]]>><<set $eventskip to 1>><</link>>
 
@@ -82,7 +82,7 @@ You cup your hands under the tap and drink some cold water.
 :: Plus Needs Kitchen Snack [plusneeds]
 <<effects>>
 You grab a quick snack and a glass of water.
-<<run plusNeedsConsume(450, 250)>>
+<<run plusNeedsConsume(450, 250, "snack", 250)>>
 <br><br>
 <<getouticon>><<link [[Finish|$plusToiletReturn]]>><<set $eventskip to 1>><</link>>
 
@@ -100,4 +100,34 @@ You grab a quick snack and a glass of water.
 	<<if Number.isFinite($plusThirst)>><<plusNeedsMobileStat "Th" "Thirst" $plusThirst>><</if>>
 	<<if Number.isFinite($plusBladder)>><<plusNeedsMobileStat "Bl" "Bladder" $plusBladder>><</if>>
 	<<if Number.isFinite($plusBowels)>><<plusNeedsMobileStat "Bw" "Bowels" $plusBowels>><</if>>
+<</widget>>
+
+:: Widgets Plus Needs Statistics [widget plusneeds]
+<<widget "plusNeedsStatistics">>
+	<<run plusNeedsInit()>><<set _pns to plusNeedsStats()>>
+	<<foldout false "_plusNeedsFoldout">>
+		<span class="gold">Needs</span>
+		Total drunk: <<print (_pns.mlTotal / 1000).toFixed(2)>> litres (<<print _pns.mlTotal>> ml)
+		<br>
+		Drunk today: <<print _pns.mlToday>> ml
+		<br>
+		Drinks: _pns.drinks
+		<br>
+		Meals eaten: _pns.meals
+		<br>
+		Snacks eaten: _pns.snacks
+		<br>
+		Food eaten: about <<print _pns.kcal.toLocaleString()>> kcal
+		<br>
+		Toilet trips (bladder): _pns.pees
+		<br>
+		Toilet trips (bowels): _pns.poops
+		<br>
+		Accidents (wet/soiled/both at once): _pns.accWet/_pns.accSoiled/_pns.accBoth
+		<br>
+		Times you were starving (hunger hit 0): _pns.zeroHunger
+		<br>
+		Times you were parched (thirst hit 0): _pns.zeroThirst
+		<br><br>
+	<</foldout>>
 <</widget>>
