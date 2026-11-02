@@ -1,0 +1,84 @@
+:: Widgets Plus Needs [widget plusneeds]
+/* Sidebar captions for the Plus Needs mod. Values: 2000 = satisfied, 0 = empty. */
+<<widget "plusneedsbar">>
+	/* _args[0] = label, _args[1] = value, _args[2..5] = flavor text full/mid/low/very low */
+	<<set _pnValue to Math.clamp(_args[1], 0, 2000)>>
+	<div @class="'plusneedscaption' + ($options.showCaptionText is true ? '' : ' rightMeterText')" @title="_args[0] + ': ' + _pnValue.toFixed(0) + ' / 2000'">
+		<div @class="($options.showCaptionText is true ? '' : 'rightMeterText')">
+			_args[0]:
+			<<if $options.showCaptionText is true>>
+				<<if _pnValue gte 1500>>
+					<span class="green">_args[2]</span>
+				<<elseif _pnValue gte 1000>>
+					<span class="lblue">_args[3]</span>
+				<<elseif _pnValue gte 400>>
+					<span class="purple">_args[4]</span>
+				<<else>>
+					<span class="red">_args[5]</span>
+				<</if>>
+			<</if>>
+		</div>
+		<<set _showCaptionText to !$options.showCaptionText>>
+		<<statbarinverted _pnValue 2000 _showCaptionText>>
+	</div>
+<</widget>>
+
+<<widget "plusneedscaption">>
+	<<run plusNeedsInit()>>
+	<<plusneedsbar "Hunger" $plusHunger "I feel well fed." "I could go for a snack." "I should eat something." "I'm starving.">>
+	<<plusneedsbar "Thirst" $plusThirst "I'm not thirsty." "I could use a drink." "I should drink something." "I'm parched.">>
+	<<plusneedsbar "Bladder" $plusBladder "I feel comfortable." "I'll need the toilet at some point." "I should find a toilet soon." "I really need a toilet now!">>
+	<<plusneedsbar "Bowels" $plusBowels "I feel comfortable." "I'll need the toilet at some point." "I should find a toilet soon." "I really need a toilet now!">>
+<</widget>>
+
+/* Link shown in bathrooms and toilets. */
+<<widget "plusToiletLink">>
+	<<bathroomicon "sink">><<link [[Use the toilet (0:03)|Plus Needs Toilet]]>><<set $plusToiletReturn to $passage>><</link>>
+	<br>
+<</widget>>
+
+<<widget "plusKitchenSnack">>
+	<<foodicon "creambun">><<link [[Have a quick snack and a glass of water (0:10)|Plus Needs Kitchen Snack]]>><<pass 10>><<set $plusToiletReturn to $passage>><</link>>
+	<br>
+<</widget>>
+
+<<widget "plusNeedsAccident">>
+	<<set _pnWhich to _args[0]>>
+	<span class="pink">
+	<<if _pnWhich is "plusBladder">>
+		You couldn't hold it any longer and didn't make it to a toilet in time. You have wet yourself.
+	<<elseif _pnWhich is "plusBowels">>
+		You couldn't hold it any longer and didn't make it to a toilet in time. You have soiled yourself.
+	<<else>>
+		You couldn't hold it any longer and didn't make it to a toilet in time.
+	<</if>>
+	</span>
+	Your face burns with embarrassment, and your clothes will need a good wash.
+	<<stress 12>><<gstress>><<set $hygiene to Math.clamp($hygiene + 400, 0, 2000)>>
+<</widget>>
+
+:: Plus Needs Toilet [plusneeds]
+<<effects>><<pass 3>>
+<<if $plusBladder lt 1900 or $plusBowels lt 1900>>
+	You find a free stall and use the toilet, then wash your hands at the sink. You feel much more comfortable.
+<<else>>
+	You use the toilet, then wash your hands at the sink. You didn't really need to go.
+<</if>>
+<<run plusNeedsToilet("both")>>
+<br><br>
+<<bathroomicon "sink">><<link [[Drink some water from the tap (0:01)|Plus Needs Toilet Drink]]>><<pass 1>><<run plusNeedsConsume(0, 400)>><</link>>
+<br>
+<<getouticon>><<link [[Finish|$plusToiletReturn]]>><<set $eventskip to 1>><</link>>
+
+:: Plus Needs Toilet Drink [plusneeds]
+<<effects>>
+You cup your hands under the tap and drink some cold water.
+<br><br>
+<<getouticon>><<link [[Finish|$plusToiletReturn]]>><<set $eventskip to 1>><</link>>
+
+:: Plus Needs Kitchen Snack [plusneeds]
+<<effects>>
+You grab a quick snack and a glass of water.
+<<run plusNeedsConsume(500, 400)>>
+<br><br>
+<<getouticon>><<link [[Finish|$plusToiletReturn]]>><<set $eventskip to 1>><</link>>
