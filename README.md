@@ -5,7 +5,6 @@ DoL+ v0.778 Vanilla (full image pack) patched so the game can start when localSt
 ## Changes
 - Early storage polyfill (in-memory stub if real storage is unavailable)
 - `updateSettings` hardened so a null localStorage cannot abort startup
-- **Hunger & Thirst bars** (hunger-thirst.js) — new always-on need bars that rise over time, show in the stat meters, and can be reduced by eating/drinking
 
 ## Usage
 Open index.html. Images live in the `img/` folder next to it.
