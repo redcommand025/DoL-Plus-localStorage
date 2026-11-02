@@ -82,3 +82,19 @@ You grab a quick snack and a glass of water.
 <<run plusNeedsConsume(500, 400)>>
 <br><br>
 <<getouticon>><<link [[Finish|$plusToiletReturn]]>><<set $eventskip to 1>><</link>>
+
+:: Widgets Plus Needs Mobile [widget plusneeds]
+<<widget "plusNeedsMobileStat">>
+	/* _args: label, name, value. Full (2000) = green, empty = red. */
+	<<mobileStatsColorSetIverted `Math.clamp(_args[2], 0, 2000)` 2000>>
+	<div @class="'stat plus-needs-mini ' + _mobileColor">
+		<mouse class="tooltip-centertop">_args[0]<span>_args[1]: <<print Math.round(_args[2])>> / 2000</span></mouse>
+	</div>
+<</widget>>
+
+<<widget "plusNeedsMobile">>
+	<<if Number.isFinite($plusHunger)>><<plusNeedsMobileStat "Hu" "Hunger" $plusHunger>><</if>>
+	<<if Number.isFinite($plusThirst)>><<plusNeedsMobileStat "Th" "Thirst" $plusThirst>><</if>>
+	<<if Number.isFinite($plusBladder)>><<plusNeedsMobileStat "Bl" "Bladder" $plusBladder>><</if>>
+	<<if Number.isFinite($plusBowels)>><<plusNeedsMobileStat "Bw" "Bowels" $plusBowels>><</if>>
+<</widget>>
