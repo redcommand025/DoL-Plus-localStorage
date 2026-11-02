@@ -25,12 +25,12 @@
 
 <<widget "plusneedscaption">>
 	<<run plusNeedsInit()>>
-	<<plusneedsbar "Hunger" $plusHunger "I feel well fed." "I could go for a snack." "I should eat something." "I'm starving.">>
-	<<plusneedsbar "Thirst" $plusThirst "I'm not thirsty." "I could use a drink." "I should drink something." "I'm parched.">>
-	<<plusneedsbar "Bladder" $plusBladder "I feel comfortable." "I'll need the toilet at some point." "I should find a toilet soon." "I really need a toilet now!">>
-	<<plusneedsbar "Bowels" $plusBowels "I feel comfortable." "I'll need the toilet at some point." "I should find a toilet soon." "I really need a toilet now!">>
+	<<plusneedsbar "Hunger" $plusHunger "You feel well fed." "You could go for a snack." "You should eat something." "You're starving.">>
+	<<plusneedsbar "Thirst" $plusThirst "You're not thirsty." "You could use a drink." "You should drink something." "You're parched.">>
+	<<plusneedsbar "Bladder" $plusBladder "You feel comfortable." "You'll need the toilet at some point." "You should find a toilet soon." "You really need a toilet now!">>
+	<<plusneedsbar "Bowels" $plusBowels "You feel comfortable." "You'll need the toilet at some point." "You should find a toilet soon." "You really need a toilet now!">>
 	<<if $plusHunger lte 0 or $plusThirst lte 0>>
-		<span class="red">I feel weak.</span>
+		<span class="red">You feel weak.</span>
 	<</if>>
 <</widget>>
 
