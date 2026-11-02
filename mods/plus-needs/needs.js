@@ -5,13 +5,19 @@
 (function () {
 	"use strict";
 	const MAX = 2000;
-	// Points lost per in-game minute.
+	// Base points lost per in-game minute while awake (tuned for ~2.5 meals, ~8 drinks,
+	// ~1 bowel movement and ~4-10 bladder trips per in-game day).
 	const RATE = {
-		plusHunger: MAX / (2 * 24 * 60), // empty in ~2 days   (~0.69/min)
-		plusThirst: MAX / (24 * 60), // empty in ~1 day        (~1.39/min)
-		plusBladder: MAX / (12 * 60), // empty in ~12 hours    (~2.78/min)
-		plusBowels: MAX / (36 * 60), // empty in ~36 hours     (~0.93/min)
+		plusHunger: 1.6, // ~96/h awake: full to "should eat" (<1000) in ~10h
+		plusThirst: 3.2, // ~192/h awake: a drink every ~2h
+		plusBladder: 3.6, // ~216/h awake, plus drinks fill it further
+		plusBowels: 0.5, // ~30/h awake, plus meals fill it further
 	};
+	const SLEEP_RATE = 0.5; // bodily needs slow down during long rests
+	const TICK_NOISE = 0.25; // +-25% randomness per tick
+	const DRIFT_STEP = 0.03, DRIFT_MIN = 0.8, DRIFT_MAX = 1.2; // slowly drifting per-stat multiplier (per hour)
+	const REFILL_NOISE = 0.22; // +-22% randomness per meal/drink
+	const WEAK_FATIGUE_PER_HOUR = 15; // fatigue added per hour while starving or parched
 	// A single long time skip (sleep, passing out, hospital) never causes an accident on its own.
 	const LONG_PASS = 180;
 	const LONG_PASS_FLOOR = 200;
@@ -22,25 +28,50 @@
 		for (const k of Object.keys(RATE)) {
 			if (!Number.isFinite(V[k])) V[k] = MAX;
 		}
+		if (!V.plusNeedsDrift || typeof V.plusNeedsDrift !== "object") V.plusNeedsDrift = {};
+		for (const k of Object.keys(RATE)) {
+			if (!Number.isFinite(V.plusNeedsDrift[k])) V.plusNeedsDrift[k] = 1;
+		}
 	}
 	window.plusNeedsInit = init;
 
 	function clamp(v) {
 		return Math.clamp(v, 0, MAX);
 	}
+	function jitter(n) {
+		return 1 + (Math.random() * 2 - 1) * n;
+	}
 
 	window.plusNeedsTick = function (minutes) {
 		const V = State.variables;
 		if (!V || V.intro || !Number.isFinite(minutes) || minutes <= 0) return;
 		init();
-		V.plusHunger = clamp(V.plusHunger - RATE.plusHunger * minutes);
-		V.plusThirst = clamp(V.plusThirst - RATE.plusThirst * minutes);
+		const longPass = Math.max(minutes, window.plusNeedsPassTotal || 0) >= LONG_PASS;
+		const sleepMul = longPass ? SLEEP_RATE : 1;
+		const loss = {};
+		for (const k of Object.keys(RATE)) {
+			const d = Math.clamp(V.plusNeedsDrift[k] + (Math.random() * 2 - 1) * DRIFT_STEP * Math.sqrt(minutes / 60), DRIFT_MIN, DRIFT_MAX);
+			V.plusNeedsDrift[k] = d;
+			loss[k] = RATE[k] * minutes * sleepMul * d * jitter(TICK_NOISE);
+		}
+		V.plusHunger = clamp(V.plusHunger - loss.plusHunger);
+		V.plusThirst = clamp(V.plusThirst - loss.plusThirst);
+		if (V.plusHunger <= 0 || V.plusThirst <= 0) {
+			// Light effect: running on empty makes you tired.
+			try {
+				if (Number.isFinite(V.tiredness)) {
+					const max = typeof C !== "undefined" && C.tiredness && C.tiredness.max ? C.tiredness.max : 2000;
+					V.tiredness = Math.clamp(V.tiredness + (WEAK_FATIGUE_PER_HOUR * minutes) / 60, 0, max);
+				}
+			} catch (e) {}
+		}
 		for (const k of ["plusBladder", "plusBowels"]) {
-			let v = V[k] - RATE[k] * minutes;
-			if (Math.max(minutes, window.plusNeedsPassTotal || 0) >= LONG_PASS && v <= 0) v = Math.min(V[k], LONG_PASS_FLOOR);
+			let v = V[k] - loss[k];
+			if (longPass && v <= 0) v = Math.min(V[k], LONG_PASS_FLOOR);
 			V[k] = clamp(v);
 			if (V[k] <= 0) {
-				V.plusAccident = V.plusAccident === "plusBladder" || V.plusAccident === "plusBowels" ? "both" : k;
+				// Bladder and bowels on the same tick (or before the notice is shown) produce one combined notice.
+				V.plusAccident = V.plusAccident && V.plusAccident !== k ? "both" : k;
 				V[k] = MAX;
 			}
 		}
@@ -51,6 +82,8 @@
 		const V = State.variables;
 		if (!V) return;
 		init();
+		hunger *= jitter(REFILL_NOISE);
+		thirst *= jitter(REFILL_NOISE);
 		V.plusHunger = clamp(V.plusHunger + hunger);
 		V.plusThirst = clamp(V.plusThirst + thirst);
 		// Drinks fill the bladder, meals fill the bowels.
@@ -61,8 +94,9 @@
 	window.plusNeedsToilet = function (which = "both") {
 		const V = State.variables;
 		init();
+		// Bladder is always emptied; bowels only when you need to go ("should find a toilet soon" or worse).
 		if (which !== "bowels") V.plusBladder = MAX;
-		if (which !== "bladder") V.plusBowels = MAX;
+		if (which === "bowels" || (which !== "bladder" && V.plusBowels < 1000)) V.plusBowels = MAX;
 	};
 
 	/* Food and drink props shown via <<wearProp>>: [hunger, thirst]. Applied once per passage per prop. */
@@ -85,6 +119,7 @@
 		shandy: [0, 500], cider: [0, 500], "red wine": [0, 300], "white wine": [0, 300], champagne: [0, 300],
 		"strawberry cocktail": [0, 400], shot: [0, 100], whisky: [0, 100], brandy: [0, 100], vodka: [0, 100], scotch: [0, 100],
 	};
+	const DRINK_SCALE = 0.6; // drinks are smaller so ~8 a day are needed
 	window.plusNeedsProp = function (prop) {
 		try {
 			if (typeof prop !== "string") return;
@@ -94,7 +129,7 @@
 			T.plusNeedsPropsSeen = T.plusNeedsPropsSeen || {};
 			if (T.plusNeedsPropsSeen[prop]) return;
 			T.plusNeedsPropsSeen[prop] = true;
-			window.plusNeedsConsume(v[0], v[1]);
+			window.plusNeedsConsume(v[0], v[1] * DRINK_SCALE);
 		} catch (e) {
 			console.warn("plusNeedsProp", e);
 		}
