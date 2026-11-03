@@ -34,6 +34,8 @@
 		for (const k of Object.keys(RATE)) {
 			if (!Number.isFinite(V[k])) V[k] = MAX;
 		}
+		if (!Number.isFinite(V.plusContinence)) V.plusContinence = 3;
+		if (!Number.isFinite(V.plusContinenceXP)) V.plusContinenceXP = 0;
 		if (!V.plusNeedsDrift || typeof V.plusNeedsDrift !== "object") V.plusNeedsDrift = {};
 		for (const k of Object.keys(RATE)) {
 			if (!Number.isFinite(V.plusNeedsDrift[k])) V.plusNeedsDrift[k] = 1;
@@ -147,26 +149,143 @@
 			window.plusClothesTick(minutes);
 		} catch (e) {}
 		const inToilet = /^Plus Needs (Outdoor )?Toilet$/.test(State.passage || "");
+		const lvl = window.plusContinenceLevel();
+		const G = V.plusGrace || (V.plusGrace = { plusBladder: 0, plusBowels: 0 });
 		for (const k of ["plusBladder", "plusBowels"]) {
-			let v = V[k] - loss[k];
-			if (longPass && v < LONG_PASS_FLOOR) v = Math.min(V[k], LONG_PASS_FLOOR);
-			V[k] = clamp(v);
-			if (V[k] <= 0 && inToilet) {
-				V[k] = 1; // already on the toilet: no accident, the visit empties it
-			} else if (V[k] <= 0) {
-				// One pending notice = one control loss = one counted accident per type.
-				// Bladder and bowels on the same tick (or before the notice is shown) produce one combined notice.
-				const prev = V.plusAccident;
-				if (prev !== k && prev !== "both") {
-					if (k === "plusBladder") S.accWet++;
-					else S.accSoiled++;
-					if (prev) S.accBoth++;
-					V.plusAccident = prev ? "both" : k;
+			const start = V[k];
+			let v = start - loss[k];
+			if (longPass && v < LONG_PASS_FLOOR) v = Math.min(start, LONG_PASS_FLOOR);
+			v = clamp(v);
+			V[k] = v;
+			if (inToilet) {
+				if (V[k] <= 0) V[k] = 1; // already on the toilet: no accident, the visit empties it
+				continue;
+			}
+			// Holding practice: +1 XP per 10 awake minutes while this bar is urgent.
+			if (!longPass && v < CONT_HOLD_BELOW) window.plusContinenceXP(minutes / 10, true);
+			// Low continence: accident rolls start above 0 (never from a long rest alone).
+			const thr = CONT_EARLY_THRESHOLD[lvl] || 0;
+			if (!longPass && thr > 0 && v > 0 && v < thr && start > v) {
+				const steps = Math.max(1, Math.min(240, Math.ceil(minutes))), drop = (start - v) / steps;
+				let hit = false;
+				for (let m = 1; m <= steps && !hit; m++) {
+					const vm = start - drop * m;
+					if (vm >= thr) continue;
+					if (Math.random() < window.plusContinenceChance(lvl, vm, drop)) hit = true;
 				}
-				V[k] = MAX;
+				if (hit) {
+					accident(k);
+					continue;
+				}
+			}
+			if (V[k] <= 0) {
+				// High continence: a grace period at 0 before the accident.
+				const grace = CONT_GRACE[lvl] || 0;
+				const atZero = start > 0 ? minutes * Math.max(0, 1 - start / Math.max(loss[k], 1e-9)) : minutes;
+				G[k] = (G[k] || 0) + atZero;
+				if (grace > 0 && G[k] < grace && !(longPass && start <= 0)) {
+					V[k] = 0;
+					const stage = G[k] >= grace * 0.75 ? 2 : 1;
+					const N = V.plusHoldNote || (V.plusHoldNote = {});
+					if ((N[k] || 0) < stage) {
+						N[k] = stage;
+						V.plusHoldShow = Math.max(V.plusHoldShow || 0, stage);
+					}
+				} else accident(k);
 			}
 		}
+		function accident(k) {
+			// One pending notice = one control loss = one counted accident per type.
+			// Bladder and bowels on the same tick (or before the notice is shown) produce one combined notice.
+			const prev = V.plusAccident;
+			if (prev !== k && prev !== "both") {
+				if (k === "plusBladder") S.accWet++;
+				else S.accSoiled++;
+				if (prev) S.accBoth++;
+				V.plusAccident = prev ? "both" : k;
+				const before = prev ? CONT_ACC_XP[prev] : 0;
+				window.plusContinenceXP(CONT_ACC_XP[V.plusAccident] - before);
+			}
+			V[k] = MAX;
+			G[k] = 0;
+			if (V.plusHoldNote) V.plusHoldNote[k] = 0;
+		}
 	};
+
+	/* ---- Continence: level 0-6 (start 3), XP -600..+600 per level. ----
+	 * Level 0-2: accident rolls start once the bar falls below a threshold (1800 / 1200 / 600).
+	 *   Per point the bar drops below the threshold, chance = h * (1 - v/threshold)^2: ~0 at the threshold, max near 0.
+	 * Level 3: accident only at 0. Level 4-6: hold on at 0 for 30 / 60 / 120 in-game minutes, then accident. */
+	const CONT_NAMES = ["Leaky", "Weak", "Unreliable", "Normal", "Strong", "Iron", "Steel"];
+	const CONT_EARLY_THRESHOLD = [1800, 1200, 600, 0, 0, 0, 0];
+	const CONT_HAZARD = [0.0038, 0.0023, 0.0018];
+	const CONT_GRACE = [0, 0, 0, 0, 30, 60, 120];
+	const CONT_XP_STEP = 600;
+	const CONT_HOLD_BELOW = 300;
+	const CONT_RELIEF_XP = [[0, 120], [200, 80], [400, 40]]; // bar <= 0 (holding on): +120, < 200: +80, < 400: +40
+	const CONT_ACC_XP = { plusBladder: -250, plusBowels: -300, both: -450 };
+	window.plusContinenceNames = CONT_NAMES;
+	window.plusContinenceChance = function (lvl, v, drop = 1) {
+		const thr = CONT_EARLY_THRESHOLD[lvl] || 0;
+		if (!(thr > 0) || v >= thr) return 0;
+		const x = 1 - Math.max(0, v) / thr;
+		return 1 - Math.exp(-CONT_HAZARD[lvl] * x * x * drop);
+	};
+	window.plusContinenceLevel = function () {
+		const V = State.variables;
+		if (!Number.isFinite(V.plusContinence)) V.plusContinence = 3;
+		if (!Number.isFinite(V.plusContinenceXP)) V.plusContinenceXP = 0;
+		return V.plusContinence;
+	};
+	window.plusContinenceXP = function (delta, quiet) {
+		const V = State.variables;
+		window.plusContinenceLevel();
+		V.plusContinenceXP += delta;
+		if (V.plusContinenceXP >= CONT_XP_STEP) {
+			if (V.plusContinence < 6) {
+				V.plusContinence++;
+				V.plusContinenceXP = 0;
+				V.plusContinenceNote = "up";
+			} else V.plusContinenceXP = CONT_XP_STEP;
+		} else if (V.plusContinenceXP <= -CONT_XP_STEP) {
+			if (V.plusContinence > 0) {
+				V.plusContinence--;
+				V.plusContinenceXP = 0;
+				V.plusContinenceNote = "down";
+			} else V.plusContinenceXP = -CONT_XP_STEP;
+		}
+	};
+	window.plusContinenceReliefXP = function (v) {
+		for (const [lim, xp] of CONT_RELIEF_XP) if (v <= 0 ? lim === 0 : v < lim && lim > 0) return xp;
+		return 0;
+	};
+	$(document).on(":passagerender", function (ev) {
+		const V = State.variables;
+		if (!V || V.combat === 1 || V.intro) return;
+		let html = "";
+		if (V.plusContinenceNote) {
+			const n = CONT_NAMES[V.plusContinence];
+			html += V.plusContinenceNote === "up"
+				? `<span class="green">You feel more in control of your bladder and bowels. Continence: ${n}.</span>`
+				: `<span class="red">You feel less able to hold it than before. Continence: ${n}.</span>`;
+			delete V.plusContinenceNote;
+		}
+		if (V.plusHoldShow && !(V.passage || "").startsWith("Plus Needs")) {
+			const which = ["plusBladder", "plusBowels"].filter(k => V[k] <= 0).map(k => (k === "plusBladder" ? "bladder" : "bowels"));
+			if (which.length) {
+				const w = which.join(" and ");
+				html += (html ? " " : "") + (V.plusHoldShow >= 2
+					? `<span class="red">You can't hold on much longer. Your ${w} ${which.length > 1 ? "are" : "is"} at breaking point. Find a toilet now!</span>`
+					: `<span class="pink">You're desperately holding on. Your ${w} ${which.length > 1 ? "are" : "is"} full to bursting, but you keep it together for now.</span>`);
+			}
+			delete V.plusHoldShow;
+		}
+		if (!html) return;
+		const div = document.createElement("div");
+		div.className = "plus-needs-continence";
+		div.innerHTML = html + "<br><br>";
+		ev.content.prepend(div);
+	});
 
 	/* Eating and drinking. hunger/thirst = points restored. */
 	/* kind: "meal" | "snack" | "drink" (auto-detected if omitted); ml: millilitres drunk (auto if omitted). */
@@ -201,6 +320,10 @@
 		init();
 		// Bladder is always emptied; bowels only when you need to go ("should find a toilet soon" or worse).
 		const S = stats();
+		const G = V.plusGrace || (V.plusGrace = {});
+		if (which !== "bowels") window.plusContinenceXP(window.plusContinenceReliefXP(V.plusBladder));
+		if (which === "bowels" || (which !== "bladder" && V.plusBowels < 1000)) window.plusContinenceXP(window.plusContinenceReliefXP(V.plusBowels));
+		for (const k of ["plusBladder", "plusBowels"]) { G[k] = 0; if (V.plusHoldNote) V.plusHoldNote[k] = 0; }
 		if (which !== "bowels") {
 			if (V.plusBladder < 1900) S.pees++;
 			V.plusBladder = MAX;
