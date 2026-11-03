@@ -62,18 +62,21 @@
 	<<set _pnWhich to _args[0]>>
 	<<set _pnFloor to plusAccidentFloor()>>
 	<<set _pnGround to ($outside ? "ground" : "floor")>>
+	<<set _pnOrig to _pnWhich>>
 	<<set _pnDiaper to (_pnFloor ? false : plusDiaperWorn())>>
-	<<set _pnAbsorbed to (_pnDiaper ? plusDiaperAbsorb(_pnWhich) : false)>>
+	/* plusDiaperAbsorb returns the part that leaks: "" (all absorbed), "plusBladder", "plusBowels" or "both". */
+	<<set _pnLeak to (_pnDiaper ? plusDiaperAbsorb(_pnWhich) : _pnWhich)>>
+	<<set _pnAbsorbed to (_pnDiaper and _pnLeak is "")>>
 	<<if _pnAbsorbed>>
 	<span class="purple">
 		You couldn't hold it any longer and didn't make it to a toilet in time. <<if _pnWhich is "plusBladder">>You wet yourself, but your _pnDiaper.name absorbs it.<<elseif _pnWhich is "plusBowels">>You soil yourself, but your _pnDiaper.name holds it.<<else>>You have an accident at both ends, but your _pnDiaper.name takes it all.<</if>>
-		Nothing shows through your clothes.<<if plusDiaperFull(_pnDiaper)>> It feels full now. Another accident would leak.<</if>>
+		Nothing shows through your clothes.<<if plusDiaperPeeFull(_pnDiaper) and plusDiaperPoopFull(_pnDiaper)>> It feels completely full now.<<elseif plusDiaperPeeFull(_pnDiaper)>> It feels soaked through now. It won't hold any more pee.<<elseif plusDiaperPoopFull(_pnDiaper)>> It feels heavy and full now. It won't hold any more mess.<</if>>
 	</span>
 	<br>Your cheeks warm a little<<if plusDiaperDef(_pnDiaper).cloth>>, and the cloth will need washing<<else>>, and you should change it soon<</if>>.
 	<<stress 6>><<gstress>><<set $hygiene to Math.clamp($hygiene + 200, 0, 2000)>>
 	<<set _pnSeen to plusAccidentSpotRoll(false, 0.5)>>
 	<<else>>
-	<<if _pnDiaper>><span class="red">Your _pnDiaper.name is already full and can't hold any more. It leaks.</span><br><</if>>
+	<<if _pnDiaper>><span class="red">Your _pnDiaper.name <<if _pnLeak is "plusBladder">>is already soaked and can't hold any more pee<<elseif _pnLeak is "plusBowels">>is already full and can't hold any more mess<<else>>is already full and can't hold any more<</if>>. It leaks<<if _pnLeak isnot _pnWhich>>, though it holds the rest<</if>>.</span><br><<set _pnWhich to _pnLeak>><</if>>
 	<span class="pink">
 	<<if _pnFloor>>
 		You couldn't hold it any longer and didn't make it to a toilet in time. With nothing on to catch it,
@@ -123,7 +126,7 @@
 		<<if _pnSeen is 2>><<status -5>><<lcool>><</if>>
 	<</if>>
 	<br>You feel less in control of yourself.
-	<<if _pnWhich is "plusBladder">><<control -10>><<lcontrol>><<elseif _pnWhich is "plusBowels">><<control -25>><<llcontrol>><<else>><<control -40>><<lllcontrol>><</if>>
+	<<if _pnOrig is "plusBladder">><<control -10>><<lcontrol>><<elseif _pnOrig is "plusBowels">><<control -25>><<llcontrol>><<else>><<control -40>><<lllcontrol>><</if>>
 <</widget>>
 
 :: Plus Needs Toilet [plusneeds]
@@ -302,13 +305,21 @@ You feel refreshed.
 <</widget>>
 
 <<widget "plusNeedsSmellNotice">>
+	<<if _args[0] is 1>>
 	<<set _pnSmell to either(
-		"Someone nearby wrinkles their nose and steps away from you. You realise they can smell your soiled clothes.",
-		"A passer-by recoils with a look of disgust. The smell coming from your clothes is impossible to miss.",
+		"Someone nearby sniffs and glances around, frowning. You hope they can't tell where the faint smell is coming from.",
+		"A passer-by wrinkles their nose slightly as they walk past you. There's a faint whiff in the air.",
+		"You catch someone sniffing the air near you, then shrugging. The smell is faint, but it's there.")>>
+	<span class="purple">_pnSmell</span> <<stress 3>><<gstress>>
+	<<else>>
+	<<set _pnSmell to either(
+		"Someone nearby wrinkles their nose and steps away from you. The smell coming from you is unmistakable.",
+		"A passer-by recoils with a look of disgust. The smell coming from you is impossible to miss.",
 		"You hear someone mutter about a horrible smell. Heads turn towards you, and you feel your cheeks burn.",
 		"A couple of people glance at you and pull faces, covering their noses as they hurry past.",
 		"Someone loudly asks what that stink is. You know exactly what it is, and so does everyone looking at you.")>>
 	<span class="pink">_pnSmell</span> <<stress 6>><<gstress>>
+	<</if>>
 <</widget>>
 
 /* Laundromat link for High Street. */
