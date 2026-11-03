@@ -17237,6 +17237,84 @@ details.expandMenu[open] summary.expandMenu::before {
 		$(div).wiki("<<plusNeedsSmellNotice>><br><br>");
 		ev.content.prepend(div);
 	});
+	/* ---- Dirt flavour notices: fire once per item when its dirt crosses up into a sidebar tier
+	 * (grubby 500 / dirty 1000 / filthy 1500). Last-notified tier is stored on the item
+	 * (plusDirtNoteTier) and drops back down when the item is cleaned, so it can fire again. ---- */
+	const DIRT_TIERS = [["grubby", 500], ["dirty", 1000], ["filthy", 1500]];
+	const dirtTierOf = d => DIRT_TIERS.reduce((t, x, i) => (d >= x[1] ? i + 1 : t), 0);
+	const DIRT_NOTE_LINES = {
+		1: [
+			"You notice {your} {is} starting to look grubby.",
+			"A smudge catches your eye. {Your} {is} getting a little grubby.",
+			"{Your} {is} no longer quite fresh. {It} {is} looking grubby.",
+			"You brush at a mark on {your}. {It} {is} starting to look worn and grubby.",
+		],
+		2: [
+			"You glance down. {Your} {is} properly dirty now.",
+			"{Your} {is} dirty. Stains and grime are hard to miss.",
+			"You notice {your} {is} looking dirty. A wash wouldn't hurt.",
+			"Dust and stains have built up. {Your} {is} clearly dirty.",
+		],
+		3: [
+			"{Your} {is} filthy. You really need to wash {them}.",
+			"You catch a whiff of {your}. {It} {is} absolutely filthy.",
+			"{Your} {is} caked with grime. {It} {is} filthy.",
+			"People might start to notice. {Your} {is} filthy.",
+		],
+	};
+	const DIRT_NOTE_COLOUR = { 1: "teal", 2: "purple", 3: "red" };
+	const joinNames = a => (a.length < 2 ? a[0] : a.slice(0, -1).join(", ") + " and " + a[a.length - 1]);
+	window.plusDirtNoteFill = function (line, items) {
+		const plural = items.length > 1 || !!items[0].plural;
+		const names = "your " + joinNames(items.map(i => i.name));
+		const cap = x => x[0].toUpperCase() + x.slice(1);
+		return line.replace(/\{your\}/g, names).replace(/\{Your\}/g, cap(names))
+			.replace(/\{is\}/g, plural ? "are" : "is").replace(/\{It\}/g, plural ? "They" : "It")
+			.replace(/\{them\}/g, plural ? "them" : "it");
+	};
+	window.plusDirtNotices = function () {
+		const V = State.variables, W = V.worn, byTier = {};
+		if (!W) return [];
+		for (const s of CL_SLOTS) {
+			const it = W[s];
+			if (!realItem(it)) continue;
+			clInit(it);
+			const t = dirtTierOf(it.plusDirt);
+			if (!Number.isFinite(it.plusDirtNoteTier)) { it.plusDirtNoteTier = t; continue; } // baseline silently
+			if (t < it.plusDirtNoteTier) it.plusDirtNoteTier = t; // cleaned: re-arm
+			else if (t > it.plusDirtNoteTier) { it.plusDirtNoteTier = t; (byTier[t] = byTier[t] || []).push(it); }
+		}
+		const last = V.plusDirtNoteLast || (V.plusDirtNoteLast = {}), out = [];
+		for (const t of Object.keys(byTier).sort().reverse()) {
+			const lines = DIRT_NOTE_LINES[t];
+			let i = Math.floor(Math.random() * lines.length);
+			if (i === last[t] && lines.length > 1) i = (i + 1 + Math.floor(Math.random() * (lines.length - 1))) % lines.length;
+			last[t] = i;
+			out.push({ tier: +t, cls: DIRT_NOTE_COLOUR[t], text: window.plusDirtNoteFill(lines[i], byTier[t]) });
+		}
+		return out;
+	};
+	$(document).on(":passagerender", function (ev) {
+		const V = State.variables;
+		if (!V || V.combat === 1 || V.intro || !V.worn || (V.passage || "").startsWith("Plus Needs")) return;
+		try {
+			const list = window.plusDirtNotices();
+			if (!list.length) return;
+			const div = document.createElement("div");
+			div.className = "plus-needs-dirtnotice";
+			list.forEach((n, i) => {
+				if (i) div.append(" ");
+				const sp = document.createElement("span");
+				sp.className = n.cls;
+				sp.textContent = n.text;
+				div.append(sp);
+			});
+			div.append(document.createElement("br"), document.createElement("br"));
+			ev.content.prepend(div);
+		} catch (e) {
+			console.warn("plusDirtNotices", e);
+		}
+	});
 	/* ---- Accidents with nothing in the way, being spotted, and "find a place to go". ---- */
 	const SCHOOL_PASS = /^(School|Hallways|Canteen|(Science|Maths|English|History|Housekeeping) Classroom|Classroom)/;
 	const TOWN_BUSY = ["High Street", "Connudatus Street", "Barb Street", "Oxford Street", "Cliff Street", "Starfish Street", "Nightingale Street", "Shopping Centre"];
