@@ -38,7 +38,6 @@
 	<<if $plusThirst lte 0>>
 		<span class="red">Your head pounds from thirst.</span>
 	<</if>>
-	<<for _pnL range plusClothesStatus()>><span @class="_pnL[0]">_pnL[1]</span> <</for>>
 <</widget>>
 
 /* Link shown in bathrooms and toilets. */
@@ -46,6 +45,12 @@
 	<<bathroomicon "sink">><<link [[Use the toilet (0:03)|Plus Needs Toilet]]>><<set $plusToiletReturn to $passage>><</link>>
 	<br>
 	<<plusCleanLink>>
+<</widget>>
+
+/* Public toilet block (beach, High Street): uses the same toilet passage, so stats are counted the same way. */
+<<widget "plusPublicToiletLink">>
+	<<bathroomicon "sink">><<link `_args[0] + " (0:03)"` "Plus Needs Toilet">><<set $plusToiletReturn to $passage>><</link>>
+	<br>
 <</widget>>
 
 <<widget "plusKitchenSnack">>
@@ -115,7 +120,7 @@
 <</if>>
 <<run plusNeedsToilet("both")>>
 <br><br>
-<<bathroomicon "sink">><<link [[Drink some water from the tap (0:01)|Plus Needs Toilet Drink]]>><<pass 1>><<run plusNeedsConsume(0, 300, "drink", 250)>><</link>>
+<<bathroomicon "sink">><<link [[Drink some water from the tap (0:01)|Plus Needs Toilet Drink]]>><<pass 1>><<run plusNeedsConsume(0, 400, "drink", 250)>><</link>>
 <br>
 <<getouticon>><<link [[Finish|$plusToiletReturn]]>><<set $eventskip to 1>><</link>>
 
@@ -128,7 +133,7 @@ You cup your hands under the tap and drink some cold water.
 :: Plus Needs Kitchen Snack [plusneeds]
 <<effects>>
 You grab a quick snack and a glass of water.
-<<run plusNeedsConsume(450, 250, "snack", 250)>>
+<<run plusNeedsConsume(900, 400, "snack", 250)>>
 <br><br>
 <<getouticon>><<link [[Finish|$plusToiletReturn]]>><<set $eventskip to 1>><</link>>
 
@@ -211,22 +216,22 @@ You grab a quick snack and a glass of water.
 <<set _pnSpot to $plusDrinkSpot>>
 <<if _pnSpot is "stream">>
 	You kneel by the stream, cup your hands in the cold, clear water and drink.
-	<<run plusNeedsConsume(0, 350, "drink", plusNeedsML["stream"])>>
+	<<run plusNeedsConsume(0, 450, "drink", plusNeedsML["stream"])>>
 <<elseif _pnSpot is "lake">>
 	You crouch at the water's edge and drink a few handfuls of cool lake water.
-	<<run plusNeedsConsume(0, 350, "drink", plusNeedsML["lake"])>>
+	<<run plusNeedsConsume(0, 450, "drink", plusNeedsML["lake"])>>
 <<elseif _pnSpot is "cooler">>
 	You fill a paper cup at the water cooler and drink it down.
-	<<run plusNeedsConsume(0, 250, "drink", plusNeedsML["water cooler"])>>
+	<<run plusNeedsConsume(0, 400, "drink", plusNeedsML["water cooler"])>>
 <<elseif _pnSpot is "cafe">>
 	You ask for a glass of tap water. It's brought over with a polite smile, and you drink it gratefully.
-	<<run plusNeedsConsume(0, 300, "drink", plusNeedsML["cafe water"])>>
+	<<run plusNeedsConsume(0, 450, "drink", plusNeedsML["cafe water"])>>
 <<elseif _pnSpot is "shower">>
 	You find the tap by the beach showers and drink some fresh water.
-	<<run plusNeedsConsume(0, 250, "drink", plusNeedsML["fountain"])>>
+	<<run plusNeedsConsume(0, 400, "drink", plusNeedsML["fountain"])>>
 <<else>>
 	You lean over the drinking fountain and take a long drink of cool water.
-	<<run plusNeedsConsume(0, 250, "drink", plusNeedsML["fountain"])>>
+	<<run plusNeedsConsume(0, 400, "drink", plusNeedsML["fountain"])>>
 <</if>>
 You feel refreshed.
 <br><br>
@@ -266,7 +271,7 @@ You feel refreshed.
 /* "Try to remove dirt" link: wardrobes, changing rooms, bathrooms and toilets. Shows the worn items' state when not clean. */
 <<widget "plusCleanLink">>
 	<<if plusClothesWorn().some(i => i.plusDirt gte 1 or i.plusSoiled gt 0)>>
-		<<bathroomicon "sink">><<link [[Try to scrub the dirt and stains out of your clothes (0:05)|Plus Needs Clean]]>><<set $plusCleanReturn to $passage>><</link>>
+		<<bathroomicon "sink">><<link [[Try to scrub the dirt and stains out of your clothes (0:05)|Plus Needs Clean]]>><<if $passage isnot "Plus Needs Clean">><<set $plusCleanReturn to $passage>><</if>><</link>>
 		<br>
 	<</if>>
 <</widget>>

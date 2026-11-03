@@ -9,11 +9,11 @@
 	// ~1 bowel movement and ~4-10 bladder trips per in-game day).
 	const RATE = {
 		plusHunger: 1.6, // ~96/h awake: full to "should eat" (<1000) in ~10h
-		plusThirst: 3.2, // ~192/h awake: a drink every ~2h
+		plusThirst: 2.6, // ~156/h awake: a drink every ~2.5h
 		plusBladder: 3.6, // ~216/h awake, plus drinks fill it further
 		plusBowels: 0.5, // ~30/h awake, plus meals fill it further
 	};
-	const SLEEP_RATE = 0.5; // bodily needs slow down during long rests
+	const SLEEP_RATE = { plusHunger: 0.25, plusThirst: 0.25, plusBladder: 0.5, plusBowels: 0.5 }; // bodily needs slow down during long rests
 	const TICK_NOISE = 0.25; // +-25% randomness per tick
 	const DRIFT_STEP = 0.03, DRIFT_MIN = 0.8, DRIFT_MAX = 1.2; // slowly drifting per-stat multiplier (per hour)
 	const REFILL_NOISE = 0.22; // +-22% randomness per meal/drink
@@ -24,7 +24,9 @@
 	const EMPTY_PAIN_CAP = { plusHunger: 40, plusThirst: 60 }; // pain from needs alone won't push past this (caps add when both are 0)
 	// A single long time skip (sleep, passing out, hospital) never causes an accident on its own.
 	const LONG_PASS = 180;
-	const LONG_PASS_FLOOR = 200;
+	// During a long rest bladder/bowels stop at the sidebar's "You should find a toilet soon" tier (400-999),
+	// so you never wake up at "You really need a toilet now!" (<400) from sleep alone.
+	const LONG_PASS_FLOOR = 400;
 
 	function init() {
 		const V = State.variables;
@@ -105,12 +107,12 @@
 		if (!V || V.intro || !Number.isFinite(minutes) || minutes <= 0) return;
 		init();
 		const longPass = Math.max(minutes, window.plusNeedsPassTotal || 0) >= LONG_PASS;
-		const sleepMul = longPass ? SLEEP_RATE : 1;
+		
 		const loss = {};
 		for (const k of Object.keys(RATE)) {
 			const d = Math.clamp(V.plusNeedsDrift[k] + (Math.random() * 2 - 1) * DRIFT_STEP * Math.sqrt(minutes / 60), DRIFT_MIN, DRIFT_MAX);
 			V.plusNeedsDrift[k] = d;
-			loss[k] = RATE[k] * minutes * sleepMul * d * jitter(TICK_NOISE);
+			loss[k] = RATE[k] * minutes * (longPass ? SLEEP_RATE[k] : 1) * d * jitter(TICK_NOISE);
 		}
 		const S = stats();
 		const wasH = V.plusHunger, wasT = V.plusThirst;
@@ -147,7 +149,7 @@
 		const inToilet = /^Plus Needs (Outdoor )?Toilet$/.test(State.passage || "");
 		for (const k of ["plusBladder", "plusBowels"]) {
 			let v = V[k] - loss[k];
-			if (longPass && v <= 0) v = Math.min(V[k], LONG_PASS_FLOOR);
+			if (longPass && v < LONG_PASS_FLOOR) v = Math.min(V[k], LONG_PASS_FLOOR);
 			V[k] = clamp(v);
 			if (V[k] <= 0 && inToilet) {
 				V[k] = 1; // already on the toilet: no accident, the visit empties it
@@ -229,6 +231,8 @@
 		shandy: [0, 500], cider: [0, 500], "red wine": [0, 300], "white wine": [0, 300], champagne: [0, 300],
 		"strawberry cocktail": [0, 400], shot: [0, 100], whisky: [0, 100], brandy: [0, 100], vodka: [0, 100], scotch: [0, 100],
 	};
+	// Snacks (anything under a meal's 500 hunger) refill twice their listed hunger value but still count as snacks.
+	const SNACK_MUL = 2;
 	const DRINK_SCALE = 0.6; // drinks are smaller so ~8 a day are needed
 	window.plusNeedsProp = function (prop) {
 		try {
@@ -245,8 +249,8 @@
 			T.plusNeedsPropsSeen[key] = true;
 			const ml = Number.isFinite(ML[key]) ? ML[key] : v[1] > 0 ? (v[0] > 0 ? ML["meal drink"] : ML.tap) : 0;
 			// Mostly-liquid props (milkshake, hot cocoa, milk) count as drinks, not snacks.
-			const kind = v[1] > v[0] ? "drink" : undefined;
-			window.plusNeedsConsume(v[0], v[1] * DRINK_SCALE, kind, ml);
+			const kind = v[1] > v[0] ? "drink" : v[0] > 0 && v[0] < 500 ? "snack" : undefined;
+			window.plusNeedsConsume(kind === "snack" ? v[0] * SNACK_MUL : v[0], v[1] * DRINK_SCALE, kind, ml);
 		} catch (e) {
 			console.warn("plusNeedsProp", e);
 		}
@@ -263,7 +267,7 @@
 		if (V.plusSchoolLunchDay === d) return;
 		V.plusSchoolLunchDay = d;
 		window.plusNeedsConsume(1000, 0, "meal", 0); // good meal
-		window.plusNeedsConsume(0, 300, "drink", ML.tap); // glass of water (~250 ml)
+		window.plusNeedsConsume(0, 500, "drink", ML.tap); // glass of water (~250 ml)
 	};
 
 	$(document).on(":passagestart", function (ev) {
@@ -376,7 +380,7 @@
 	 * ($worn[slot].plusDirt / .plusSoiled) so they travel with the item into the wardrobe and back. ---- */
 	const CL_SLOTS = ["over_upper", "over_lower", "upper", "lower", "under_upper", "under_lower"];
 	const DIRT_MAX = 2000, SOIL_MAX = 10;
-	const DIRT_RATE = DIRT_MAX / (3 * 24 * 60); // ~0.46/min: a worn item goes 0 -> 2000 in 3 in-game days
+	const DIRT_RATE = DIRT_MAX / (5 * 24 * 60); // ~0.278/min: a worn item goes 0 -> 2000 in 5 in-game days
 	const DIRT_PENALTY_FROM = 1000; // penalties start here and peak at DIRT_MAX
 	const ALLURE_PENALTY = 0.15, SEDUCTION_PENALTY = 0.15, BULLY_PENALTY = { school: 6, outside: 3 }; // at max dirt
 	const SMELL_PER_SOIL = 0.02, SMELL_CAP = 0.4, SMELL_COOLDOWN = 30 * 60; // seconds of game time
@@ -555,6 +559,23 @@
 		else if (d >= 500) out.push(["lblue", "Your clothes look a little grubby."]);
 		if (s >= 8) out.push(["red", "Your soiled clothes reek. People can smell you."]);
 		else if (s > 0) out.push(["purple", "Your clothes are soiled and smell unpleasant."]);
+		return out;
+	};
+	/* Sidebar clothing caption prefixes, in the same style as the base game's integrityWord():
+	 * coloured adjectives, nothing shown for the default (clean / not soiled) state. */
+	window.plusDirtKeyword = it => {
+		const d = (it && it.plusDirt) || 0;
+		return d >= 1500 ? "filthy" : d >= 1000 ? "dirty" : d >= 500 ? "grubby" : "";
+	};
+	window.plusSoilKeyword = it => {
+		const s = (it && it.plusSoiled) || 0;
+		return s >= 5 ? "heavily soiled" : s > 0 ? "soiled" : "";
+	};
+	const WORD_COLOUR = { grubby: "teal", dirty: "purple", filthy: "red", soiled: "purple", "heavily soiled": "red" };
+	window.plusDirtWord = function (it) {
+		if (!realItem(it)) return "";
+		let out = "";
+		for (const kw of [window.plusDirtKeyword(it), window.plusSoilKeyword(it)]) if (kw) out += `<span class="${WORD_COLOUR[kw]}">${kw}</span> `;
 		return out;
 	};
 	window.plusClothesItemLines = function () {

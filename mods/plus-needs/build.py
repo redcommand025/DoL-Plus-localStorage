@@ -47,7 +47,7 @@ SPOTS = [
     ("Hallways", "<<scienceicon>><<link [[Science classroom (0:01)|Science Classroom]]>>", '<<plusDrinkLink "fountain">>'),
     ("School Library", "<<getouticon>><<link [[Leave the library (0:01)|Hallways]]>>", '<<plusDrinkLink "fountain">>'),
     ("Park", '<<add_link "<br>Alternate routes<br>">>', '<<plusDrinkLink "fountain">><<plusOutdoorToiletLink "park">>'),
-    ("Beach", '<<add_link "Travel<br>">>', '<<plusDrinkLink "shower">><<plusOutdoorToiletLink "beach">><br>'),
+    ("Beach", '<<add_link "Travel<br>">>', '<<plusPublicToiletLink "Use the public toilets by the showers">><<plusDrinkLink "fountain">><<plusOutdoorToiletLink "beach">><br>'),
     ("Lake Shore", "<<foresticon>><<link [[Forest (0:10)|Forest]]>>", '<<plusDrinkLink "lake">><<plusOutdoorToiletLink "lake">>'),
     ("Lake Waterfall", "<<foresticon>><<link [[Forest (0:10)|Forest]]>>", '<<plusDrinkLink "lake">><<plusOutdoorToiletLink "lake">>'),
     ("Lake Campsite", "<<foresticon>><<link [[Forest (0:10)|Forest]]>>", '<<plusDrinkLink "lake">><<plusOutdoorToiletLink "lake">>'),
@@ -60,7 +60,10 @@ for p, a, c in SPOTS:
 EDITS.append(("Forest", "before_all", "<<forestlessdeep>>", '<<plusOutdoorToiletLink "forest">><br>'))
 for p in ["Wardrobe", "Changing Room", "School Pool Wardrobe"]:
     EDITS.append((p, "before", '<div id="wardrobewear">', "<<plusClothesLines>><<plusCleanLink>><br>"))
-EDITS.append(("High Street", "before", '<<if Time.dayState is "day" and $exposed is 0 and $photo', "<<plusLaundromatLink>>"))
+EDITS.append(("High Street", "before", '<<if Time.dayState is "day" and $exposed is 0 and $photo', "<<plusLaundromatLink>><<plusPublicToiletLink \"Use the public toilets\">><<plusDrinkLink \"fountain\">>"))
+# Sidebar clothing caption: dirt/soiled adjectives next to the integrity word ("a grubby soiled frayed school shirt")
+EDITS.append(("Widgets Clothing caption text", "after", "<<set $_wornIntegrity to window.integrityWord($_wornItem,_args[0])>>",
+              "<<set $_wornIntegrity to plusDirtWord($_wornItem) + $_wornIntegrity>>"))
 # "Find a place to go" (urgent need, public hubs)
 for p in ["High Street", "Barb Street", "Connudatus Street", "Domus Street", "Oxford Street", "Nightingale Street", "Wolf Street",
           "Starfish Street", "Cliff Street", "Danube Street", "Mer Street", "Elk Street", "Harvest Street",
