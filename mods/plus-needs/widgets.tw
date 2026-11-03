@@ -393,3 +393,55 @@ A small laundromat sits off High Street. Rows of washing machines and tumble dry
 	<</silently>>
 	<<characteristic-box _plusContinenceConfig>>
 <</widget>>
+
+/* Classroom request links (lesson passages) */
+<<widget "plusClassAskLinks">>
+	<<bathroomicon>><<link "Ask to go to the restroom" "Plus Needs Class Ask">><<if plusClassAsk("toilet")>><<pass 5>><<else>><<pass 1>><</if>><</link>>
+	<br>
+	<<bathroomicon "sink">><<link "Ask to get a drink of water" "Plus Needs Class Ask">><<if plusClassAsk("drink")>><<pass 5>><<else>><<pass 1>><</if>><</link>>
+	<br>
+<</widget>>
+
+:: Plus Needs Class Ask [plusneeds]
+<<effects>>
+<<set _t to $plusClassTeacherName>>
+<<if $plusClassKind is "toilet">>You raise your hand and ask _t if you can go to the restroom.<<else>>You raise your hand and ask _t if you can go and get a drink of water.<</if>>
+<<if $plusClassRepeat gt 1>> It isn't the first time you've asked this lesson.<</if>>
+<br><br>
+<<if $plusClassGranted>>
+	<<if _t is "Sirris">>Sirris smiles. "Of course, go ahead. Don't be too long."
+	<<elseif _t is "River">>River glances at the clock. "Five minutes. Not a second more."
+	<<elseif _t is "Doren">>Doren waves you off. "Go on, then. Hurry back."
+	<<elseif _t is "Winter">>Winter nods without looking up from the book. "Very well. Be quick about it."
+	<<else>>Mason nods. "Go on. Mind the wet tiles."<</if>>
+	<br><br>
+	<<if $plusClassKind is "toilet">>
+		<<if $plusBladder gte 1400 and $plusBowels gte 1400>>
+			You don't really need to go, but it's nice to stretch your legs. You wander down the empty corridor to the toilets, wash your hands, and head back.
+		<<else>>
+			You hurry down the empty corridor to the school toilets. Relief washes over you as you finally get to go. You wash your hands and head back.
+		<</if>>
+		<<run plusNeedsToilet("both")>>
+	<<else>>
+		<<if $plusThirst gte 1600>>
+			You aren't especially thirsty, but you walk to the fountain in the corridor and take a few sips anyway.
+		<<else>>
+			You walk to the fountain in the corridor and drink deeply. The cool water is a relief.
+		<</if>>
+		<<run plusNeedsConsume(0, 400, "drink", 200)>>
+	<</if>>
+	<br><br>
+	You slip back into your seat. The lesson has carried on without you.
+<<else>>
+	<<if $plusClassRepeat gt 1>>"You've already asked," _t says flatly. "The answer is still no."
+	<<elseif _t is "Sirris">>Sirris gives you an apologetic look. "Not right now, I'm afraid. Please wait until the end of the lesson."
+	<<elseif _t is "River">>River doesn't even look up. "No. You can wait until the bell."
+	<<elseif _t is "Doren">>Doren crosses both arms. "Nice try. Sit back down and wait."
+	<<elseif _t is "Winter">>Winter peers at you. "Certainly not. Patience is a virtue."
+	<<else>>Mason frowns. "You'll have to hold on until the lesson's over."<</if>>
+	<br><br>
+	A few classmates snicker as you lower your hand. You'll have to wait.
+	<<stress 3>><<gstress>>
+<</if>>
+<br><br>
+<<link [[Next|$plusClassReturn]]>><<set $eventskip to 1>><</link>>

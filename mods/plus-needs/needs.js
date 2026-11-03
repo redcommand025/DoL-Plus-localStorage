@@ -148,7 +148,7 @@
 		try {
 			window.plusClothesTick(minutes);
 		} catch (e) {}
-		const inToilet = /^Plus Needs (Outdoor )?Toilet$/.test(State.passage || "");
+		const inToilet = /^Plus Needs (Outdoor |Class )?Toilet$/.test(State.passage || "");
 		const lvl = window.plusContinenceLevel();
 		const G = V.plusGrace || (V.plusGrace = { plusBladder: 0, plusBowels: 0 });
 		for (const k of ["plusBladder", "plusBowels"]) {
@@ -895,5 +895,43 @@
 			if (window.plusIsSchool(fpTitle())) window.plusSchoolBullyBump();
 		}
 		return spotted;
+	};
+})();
+
+/* ---- Classroom: ask the teacher to leave for the toilet / a drink ---- */
+(function () {
+	const TEACHERS = { Science: "Sirris", Maths: "River", English: "Doren", History: "Winter", Swimming: "Mason" };
+	window.plusClassTeacher = function (passage) {
+		const m = /^(\w+) Lesson$/.exec(passage || "");
+		return m ? TEACHERS[m[1]] : undefined;
+	};
+	window.plusClassLove = function (name) {
+		try { const n = C.npc[name]; return n && typeof n.love === "number" ? n.love : 0; } catch (e) { return 0; }
+	};
+	// Refusal chance 0..0.85
+	window.plusClassRefuseChance = function (name, asks = 0) {
+		const V = State.variables;
+		const del = Number(V.delinquency) || 0, love = window.plusClassLove(name);
+		let p = 0.05;
+		p += 0.45 * Math.clamp((del - 400) / 600, 0, 1);
+		p += 0.40 * Math.clamp((20 - love) / 40, 0, 1);
+		p -= 0.10 * Math.clamp((love - 30) / 50, 0, 1);
+		p += 0.15 * asks;
+		return Math.clamp(p, 0.02, 0.85);
+	};
+	// Rolls a request. Returns true if granted. Tracks repeated asks per lesson (passage + hour + day).
+	window.plusClassAsk = function (kind) {
+		const V = State.variables, passage = State.passage;
+		const name = window.plusClassTeacher(passage) || "Sirris";
+		const key = passage + "|" + Time.days + "|" + Time.hour;
+		if (!V.plusClassAsks || V.plusClassAsks.key !== key) V.plusClassAsks = { key, n: 0 };
+		const p = window.plusClassRefuseChance(name, V.plusClassAsks.n);
+		V.plusClassAsks.n++;
+		V.plusClassTeacherName = name;
+		V.plusClassKind = kind;
+		V.plusClassRepeat = V.plusClassAsks.n;
+		V.plusClassReturn = passage;
+		V.plusClassGranted = Math.random() >= p;
+		return V.plusClassGranted;
 	};
 })();

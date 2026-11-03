@@ -59,6 +59,8 @@ SPOTS = [
 for p, a, c in SPOTS:
     EDITS.append((p, "before_all" if p == "Shopping Centre" else "before", a, c))
 EDITS.append(("Forest", "before_all", "<<forestlessdeep>>", '<<plusOutdoorToiletLink "forest">><br>'))
+for _s in ["Science", "Maths", "English", "History", "Swimming"]:
+    EDITS.append((_s + " Lesson", "before_all", "<<daydreamicon>><<link [[Daydream|" + _s + " Lesson Daydream]]>>", "<<plusClassAskLinks>>"))
 for p in ["Wardrobe", "Changing Room", "School Pool Wardrobe"]:
     EDITS.append((p, "before", '<div id="wardrobewear">', "<<plusClothesLines>><<plusCleanLink>><br>"))
 EDITS.append(("High Street", "before", '<<if Time.dayState is "day" and $exposed is 0 and $photo', "<<plusLaundromatLink>><<plusPublicToiletLink \"Use the public toilets\">><<plusDrinkLink \"fountain\">>"))
