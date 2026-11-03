@@ -973324,7 +973324,16 @@ Jordan materialises from the background radiation of the universe.
 		You couldn&#39;t hold it any longer and didn&#39;t make it to a toilet in time. You have had an accident at both ends.
 	&lt;&lt;/if&gt;&gt;
 	&lt;/span&gt;
-	Your face burns with embarrassment, and your clothes will need a good wash.
+	/* Wet the clothing via the base game&#39;s own wetness ($underlowerwet / $lowerwet, 0-200; &lt;&lt;effects&gt;&gt; updates the stages and drying). */
+	&lt;&lt;if _pnWhich is &quot;plusBladder&quot;&gt;&gt;&lt;&lt;set _pnUL to 180&gt;&gt;&lt;&lt;set _pnL to 40&gt;&gt;&lt;&lt;elseif _pnWhich is &quot;plusBowels&quot;&gt;&gt;&lt;&lt;set _pnUL to 160&gt;&gt;&lt;&lt;set _pnL to 30&gt;&gt;&lt;&lt;else&gt;&gt;&lt;&lt;set _pnUL to 200&gt;&gt;&lt;&lt;set _pnL to 50&gt;&gt;&lt;&lt;/if&gt;&gt;
+	&lt;&lt;set _pnULwet to !$worn.under_lower.type.includes(&quot;naked&quot;) and !waterproofCheck($worn.under_lower)&gt;&gt;
+	&lt;&lt;set _pnLwet to !$worn.lower.type.includes(&quot;naked&quot;) and !waterproofCheck($worn.lower)&gt;&gt;
+	&lt;&lt;if _pnULwet&gt;&gt;&lt;&lt;underlowerwet _pnUL&gt;&gt;&lt;&lt;/if&gt;&gt;
+	&lt;&lt;if _pnLwet&gt;&gt;&lt;&lt;lowerwet _pnL&gt;&gt;&lt;&lt;/if&gt;&gt;
+	&lt;&lt;if _pnULwet&gt;&gt;Your $worn.under_lower.name &lt;&lt;underlowerplural&gt;&gt; soaked&lt;&lt;if _pnLwet&gt;&gt;, and a damp patch is spreading on your $worn.lower.name&lt;&lt;/if&gt;&gt;.
+	&lt;&lt;elseif _pnLwet&gt;&gt;A damp patch spreads on your $worn.lower.name.
+	&lt;&lt;/if&gt;&gt;
+	Your face burns with embarrassment&lt;&lt;if _pnULwet or _pnLwet&gt;&gt;, and your clothes will need a good wash&lt;&lt;/if&gt;&gt;.
 	&lt;&lt;stress 12&gt;&gt;&lt;&lt;gstress&gt;&gt;&lt;&lt;set $hygiene to Math.clamp($hygiene + 400, 0, 2000)&gt;&gt;
 	&lt;br&gt;You feel less in control of yourself.
 	&lt;&lt;if _pnWhich is &quot;plusBladder&quot;&gt;&gt;&lt;&lt;control -10&gt;&gt;&lt;&lt;lcontrol&gt;&gt;&lt;&lt;elseif _pnWhich is &quot;plusBowels&quot;&gt;&gt;&lt;&lt;control -25&gt;&gt;&lt;&lt;llcontrol&gt;&gt;&lt;&lt;else&gt;&gt;&lt;&lt;control -40&gt;&gt;&lt;&lt;lllcontrol&gt;&gt;&lt;&lt;/if&gt;&gt;
