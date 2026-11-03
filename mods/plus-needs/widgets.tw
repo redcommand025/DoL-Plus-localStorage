@@ -55,8 +55,16 @@
 
 <<widget "plusNeedsAccident">>
 	<<set _pnWhich to _args[0]>>
+	<<set _pnFloor to plusAccidentFloor()>>
+	<<set _pnGround to ($outside ? "ground" : "floor")>>
 	<span class="pink">
-	<<if _pnWhich is "plusBladder">>
+	<<if _pnFloor>>
+		You couldn't hold it any longer and didn't make it to a toilet in time. With nothing on to catch it,
+		<<if _pnWhich is "plusBladder">>a puddle spreads across the _pnGround at your feet.
+		<<elseif _pnWhich is "plusBowels">>you leave a mess on the _pnGround beneath you.
+		<<else>>you leave a puddle and a mess on the _pnGround beneath you.
+		<</if>>
+	<<elseif _pnWhich is "plusBladder">>
 		You couldn't hold it any longer and didn't make it to a toilet in time. You have wet yourself.
 	<<elseif _pnWhich is "plusBowels">>
 		You couldn't hold it any longer and didn't make it to a toilet in time. You have soiled yourself.
@@ -64,19 +72,36 @@
 		You couldn't hold it any longer and didn't make it to a toilet in time. You have had an accident at both ends.
 	<</if>>
 	</span>
-	/* Wet the clothing via the base game's own wetness ($underlowerwet / $lowerwet, 0-200; <<effects>> updates the stages and drying). */
-	<<if _pnWhich is "plusBladder">><<set _pnUL to 180>><<set _pnL to 40>><<elseif _pnWhich is "plusBowels">><<set _pnUL to 160>><<set _pnL to 30>><<else>><<set _pnUL to 200>><<set _pnL to 50>><</if>>
-	<<set _pnULwet to !$worn.under_lower.type.includes("naked") and !waterproofCheck($worn.under_lower)>>
-	<<set _pnLwet to !$worn.lower.type.includes("naked") and !waterproofCheck($worn.lower)>>
-	<<if _pnULwet>><<set _pnUL to Math.max(0, Math.min(_pnUL, 95 - $underlowerwet))>><<underlowerwet _pnUL>><</if>>
-	<<if _pnLwet>><<lowerwet _pnL>><</if>>
-	/* Accident wetness on under_lower is capped at 95 so it stays below the "soaked through" (100) stage. */
-	<<run plusClothesAccident(_pnWhich)>>
-	<<if _pnULwet>>Your $worn.under_lower.name <<underlowerplural>> soaked<<if _pnLwet>>, and a damp patch is spreading on your $worn.lower.name<</if>>.
-	<<elseif _pnLwet>>A damp patch spreads on your $worn.lower.name.
+	<<set _pnULwet to false>><<set _pnLwet to false>>
+	<<if !_pnFloor>>
+		/* Wet the clothing via the base game's own wetness ($underlowerwet / $lowerwet, 0-200; <<effects>> updates the stages and drying). */
+		<<if _pnWhich is "plusBladder">><<set _pnUL to 180>><<set _pnL to 40>><<elseif _pnWhich is "plusBowels">><<set _pnUL to 160>><<set _pnL to 30>><<else>><<set _pnUL to 200>><<set _pnL to 50>><</if>>
+		<<set _pnULwet to !$worn.under_lower.type.includes("naked") and !waterproofCheck($worn.under_lower)>>
+		<<set _pnLwet to !$worn.lower.type.includes("naked") and !waterproofCheck($worn.lower)>>
+		/* Accident wetness on under_lower is capped at 95 so it stays below the "soaked through" (100) stage. */
+		<<if _pnULwet>><<set _pnUL to Math.max(0, Math.min(_pnUL, 95 - $underlowerwet))>><<underlowerwet _pnUL>><</if>>
+		<<if _pnLwet>><<lowerwet _pnL>><</if>>
+		<<run plusClothesAccident(_pnWhich)>>
+		<<if _pnULwet>>Your $worn.under_lower.name <<underlowerplural>> soaked<<if _pnLwet>>, and a damp patch is spreading on your $worn.lower.name<</if>>.
+		<<elseif _pnLwet>>A damp patch spreads on your $worn.lower.name.
+		<</if>>
 	<</if>>
-	Your face burns with embarrassment<<if _pnULwet or _pnLwet>>, and your clothes will need a good wash<</if>>.
+	Your face burns with embarrassment<<if _pnULwet or _pnLwet>>, and your clothes will need a good wash<<elseif _pnFloor>>, and you hurry away from the _pnGround before anyone can connect it to you<</if>>.
 	<<stress 12>><<gstress>><<set $hygiene to Math.clamp($hygiene + 400, 0, 2000)>>
+	<<set _pnSeen to plusAccidentSpotRoll(_pnFloor)>>
+	<<if _pnSeen gt 0>>
+		<br><span class="red">
+		<<if _pnSeen is 2>>
+			<<if _pnFloor>>A group of students sees everything. Laughter and shrieks of disgust ring out, and by the end of the day it seems the whole school knows.<<else>>Some students notice straight away. Whispers and sniggers follow you down the corridor, and you know the story will spread.<</if>>
+		<<elseif _pnFloor>>
+			<<print either("Someone nearby sees the whole thing. They stare at the _pnGround, then at you, with open disgust.", "A passer-by stops dead and gapes at the _pnGround, then at you. Others turn to look.", "You hear a gasp behind you. Someone saw everything, and they're already pointing it out to others.")>>
+		<<else>>
+			<<print either("Someone nearby notices what happened. They wrinkle their nose and look away.", "A passer-by glances at your clothes and their expression turns to pity and disgust.", "You catch someone staring at you, then whispering to their friend.")>>
+		<</if>>
+		</span>
+		<<if _pnFloor>><<stress 15>><<else>><<stress 10>><</if>><<gstress>>
+		<<if _pnSeen is 2>><<status -5>><<lcool>><</if>>
+	<</if>>
 	<br>You feel less in control of yourself.
 	<<if _pnWhich is "plusBladder">><<control -10>><<lcontrol>><<elseif _pnWhich is "plusBowels">><<control -25>><<llcontrol>><<else>><<control -40>><<lllcontrol>><</if>>
 <</widget>>
@@ -155,6 +180,12 @@ You grab a quick snack and a glass of water.
 		Times people smelt your soiled clothes: _pns.smelt
 		<br>
 		Laundromat visits: _pns.laundromat
+		<br>
+		Accidents on the floor: _pns.accFloor
+		<br>
+		Times spotted having an accident: _pns.accSpotted
+		<br>
+		Times you found a place to go in public: _pns.findPlace (spotted _pns.findPlaceSpotted)
 		<br><br>
 	<</foldout>>
 <</widget>>
@@ -302,3 +333,37 @@ A small laundromat sits off High Street. Rows of washing machines and tumble dry
 <br><br>
 <<getouticon>><<link [[Leave (0:01)|High Street]]>><<pass 1>><</link>>
 <br>
+
+:: Widgets Plus Needs Find Place [widget plusneeds]
+<<widget "plusFindPlaceLink">>
+	<<if plusFindPlaceAvailable()>>
+		<<set _pnFK to plusFindPlaceKind()>>
+		<<if _pnFK is "school">><<set _pnLabel to "Find somewhere out of sight to go (0:03)">><<elseif _pnFK is "busy">><<set _pnLabel to "Find a place to go (0:03)">><<else>><<set _pnLabel to "Find a quiet corner to go (0:03)">><</if>>
+		<<foresticon>><<link _pnLabel "Plus Needs Find Place">><<set $plusToiletReturn to $passage>><</link>>
+		<br>
+	<</if>>
+<</widget>>
+
+:: Plus Needs Find Place [plusneeds]
+<<effects>><<pass 3>>
+<<set _pnFK to plusFindPlaceKind()>>
+<<if _pnFK is "school">>
+	<<set _pnWhere to either("You slip behind the bike sheds where you hope nobody will look", "You find a deserted corner behind the bins at the edge of the grounds", "You duck into the narrow gap behind the sports equipment store")>>
+<<elseif _pnFK is "busy">>
+	<<set _pnWhere to either("You duck into a narrow alley between two shops", "You squeeze behind a large dumpster at the back of a shop", "You slip into a recessed doorway, out of the flow of people")>>
+<<else>>
+	<<set _pnWhere to either("You find a shadowy corner where the street goes quiet", "You crouch behind a stack of crates in a quiet back lane", "You step into an overgrown gap between two buildings")>>
+<</if>>
+<<if plusFindPlaceRoll()>>
+	_pnWhere and relieve yourself as quickly as you can. Just as you finish, you realise you're not alone.
+	<<if _pnFK is "school">>A couple of students have seen you. They burst out laughing and hurry off, clearly eager to tell everyone.<<else>>Someone has stopped to stare at you, looking shocked and disgusted, before turning away.<</if>>
+	<br><br>
+	<span class="red">Your cheeks burn with embarrassment.</span> You straighten your clothes and leave as fast as you can.
+	<<stress 10>><<gstress>>
+	<<if _pnFK is "school">><<status -5>><<lcool>><</if>>
+<<else>>
+	_pnWhere and relieve yourself as quickly as you can. Nobody seems to have noticed. You feel much more comfortable, if a little ashamed.
+<</if>>
+<<run plusNeedsToilet("both")>>
+<br><br>
+<<getouticon>><<link [[Continue|$plusToiletReturn]]>><<set $eventskip to 1>><</link>>

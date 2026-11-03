@@ -40,7 +40,7 @@
 	window.plusNeedsInit = init;
 
 	/* Lifetime statistics shown on the Statistics page ("Needs" foldout). */
-	const STAT_KEYS = ["mlTotal", "drinks", "meals", "snacks", "kcal", "pees", "poops", "accWet", "accSoiled", "accBoth", "zeroHunger", "zeroThirst", "mlToday", "smelt", "laundromat"];
+	const STAT_KEYS = ["mlTotal", "drinks", "meals", "snacks", "kcal", "pees", "poops", "accWet", "accSoiled", "accBoth", "zeroHunger", "zeroThirst", "mlToday", "smelt", "laundromat", "accFloor", "accSpotted", "findPlace", "findPlaceSpotted"];
 	function stats() {
 		const V = State.variables;
 		if (!V.plusNeedsStats || typeof V.plusNeedsStats !== "object") V.plusNeedsStats = {};
@@ -593,4 +593,85 @@
 		$(div).wiki("<<plusNeedsSmellNotice>><br><br>");
 		ev.content.prepend(div);
 	});
+	/* ---- Accidents with nothing in the way, being spotted, and "find a place to go". ---- */
+	const SCHOOL_PASS = /^(School|Hallways|Canteen|(Science|Maths|English|History|Housekeeping) Classroom|Classroom)/;
+	const TOWN_BUSY = ["High Street", "Connudatus Street", "Barb Street", "Oxford Street", "Cliff Street", "Starfish Street", "Nightingale Street", "Shopping Centre"];
+	const BUSY_LOC = ["high", "connudatus", "barb", "oxford", "cliff", "starfish", "nightingale", "shopping_centre", "cafe", "arcade", "promenade"];
+	const ACC_SPOT = { clothed: 0.25, floor: 0.6, busyMul: 1.5, cap: 0.95 };
+	const FIND_SPOT = { school: 0.8, busy: 0.65, quiet: 0.35 };
+	const URGENT = 300;
+	const FIND_PLACES = ["High Street", "Barb Street", "Connudatus Street", "Domus Street", "Oxford Street", "Nightingale Street", "Wolf Street", "Starfish Street", "Cliff Street", "Danube Street", "Mer Street", "Elk Street", "Harvest Street", "Commercial Alleyways", "Industrial Alleyways", "Residential Alleyways", "Hallways", "School Front Courtyard", "School Rear Courtyard", "Canteen", "School Library"];
+	function night() {
+		try {
+			return Time.dayState === "night";
+		} catch (e) {
+			return false;
+		}
+	}
+	window.plusIsSchool = function (title = State.passage) {
+		return State.variables.location === "school" || SCHOOL_PASS.test(title || "");
+	};
+	function busy(title) {
+		return TOWN_BUSY.includes(title) || BUSY_LOC.includes(State.variables.location);
+	}
+	/* True when nothing is worn that would catch an accident (skirts/dresses don't count). */
+	window.plusAccidentFloor = function () {
+		const W = State.variables.worn;
+		if (!W) return false;
+		if (realItem(W.under_lower)) return false;
+		for (const s of ["lower", "over_lower"]) if (realItem(W[s]) && !isSkirt(W[s])) return false;
+		return true;
+	};
+	window.plusAccidentSpotChance = function (floor, title = State.passage) {
+		if (window.plusIsSchool(title)) return 1;
+		if (!window.plusIsPublic(title)) return 0;
+		let p = floor ? ACC_SPOT.floor : ACC_SPOT.clothed;
+		if (busy(title)) p *= ACC_SPOT.busyMul;
+		if (night()) p *= 0.5;
+		return Math.min(ACC_SPOT.cap, p);
+	};
+	/* 0 = unseen, 1 = seen in public, 2 = seen at school. Counts the stat and applies school effects. */
+	window.plusAccidentSpotRoll = function (floor) {
+		const S = stats();
+		if (floor) S.accFloor++;
+		const c = window.plusAccidentSpotChance(floor);
+		if (!(c >= 1 || Math.random() < c)) return 0;
+		S.accSpotted++;
+		if (window.plusIsSchool()) {
+			window.plusSchoolBullyBump();
+			return 2;
+		}
+		return 1;
+	};
+	window.plusSchoolBullyBump = function () {
+		const V = State.variables;
+		if (Number.isFinite(V.bullytimer)) V.bullytimer += 10;
+	};
+	function fpTitle() {
+		return State.passage === "Plus Needs Find Place" ? State.variables.plusToiletReturn : State.passage;
+	}
+	window.plusFindPlaceKind = function (title = fpTitle()) {
+		return window.plusIsSchool(title) ? "school" : busy(title) ? "busy" : "quiet";
+	};
+	window.plusFindPlaceChance = function (title = fpTitle()) {
+		let p = FIND_SPOT[window.plusFindPlaceKind(title)];
+		if (night()) p *= 0.5;
+		return Math.round(p * 1000) / 1000;
+	};
+	window.plusFindPlaceAvailable = function (title = State.passage) {
+		const V = State.variables;
+		if (!V || V.combat === 1 || V.intro || !FIND_PLACES.includes(title)) return false;
+		return V.plusBladder <= URGENT || V.plusBowels <= URGENT;
+	};
+	window.plusFindPlaceRoll = function () {
+		const S = stats();
+		S.findPlace++;
+		const spotted = Math.random() < window.plusFindPlaceChance();
+		if (spotted) {
+			S.findPlaceSpotted++;
+			window.plusNeedsSpotted();
+			if (window.plusIsSchool(fpTitle())) window.plusSchoolBullyBump();
+		}
+		return spotted;
+	};
 })();

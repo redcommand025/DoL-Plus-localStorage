@@ -61,6 +61,17 @@ EDITS.append(("Forest", "before_all", "<<forestlessdeep>>", '<<plusOutdoorToilet
 for p in ["Wardrobe", "Changing Room", "School Pool Wardrobe"]:
     EDITS.append((p, "before", '<div id="wardrobewear">', "<<plusClothesLines>><<plusCleanLink>><br>"))
 EDITS.append(("High Street", "before", '<<if Time.dayState is "day" and $exposed is 0 and $photo', "<<plusLaundromatLink>>"))
+# "Find a place to go" (urgent need, public hubs)
+for p in ["High Street", "Barb Street", "Connudatus Street", "Domus Street", "Oxford Street", "Nightingale Street", "Wolf Street",
+          "Starfish Street", "Cliff Street", "Danube Street", "Mer Street", "Elk Street", "Harvest Street",
+          "Commercial Alleyways", "Industrial Alleyways", "Residential Alleyways"]:
+    EDITS.append((p, "before", '<<add_link "Travel<br>">>', "<<plusFindPlaceLink>>"))
+for p, a in [("Hallways", "<<scienceicon>><<link [[Science classroom (0:01)|Science Classroom]]>>"),
+             ("School Front Courtyard", '<<schoolicon "courtyard">><<link [[Rear courtyard (0:02)|School Rear Courtyard]]>>'),
+             ("School Rear Courtyard", '<<schoolicon "courtyard">><<link [[Front courtyard (0:02)|School Front Courtyard]]>>'),
+             ("Canteen", "<<getouticon>><<link [[Leave the canteen (0:01)|Hallways]]>>"),
+             ("School Library", "<<getouticon>><<link [[Leave the library (0:01)|Hallways]]>>")]:
+    EDITS.append((p, "before", a, "<<plusFindPlaceLink>>"))
 for p in ["Kitchen", "Farm Kitchen"]:
     EDITS.append((p, "before", "<<kitchenDisplay>>", "<<plusKitchenSnack>><br>"))
 for p, (h, t) in FOOD.items():
