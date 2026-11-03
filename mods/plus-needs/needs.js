@@ -141,16 +141,23 @@
 				}
 			} catch (e) {}
 		}
+		const inToilet = /^Plus Needs (Outdoor )?Toilet$/.test(State.passage || "");
 		for (const k of ["plusBladder", "plusBowels"]) {
 			let v = V[k] - loss[k];
 			if (longPass && v <= 0) v = Math.min(V[k], LONG_PASS_FLOOR);
 			V[k] = clamp(v);
-			if (V[k] <= 0) {
-				if (k === "plusBladder") S.accWet++;
-				else S.accSoiled++;
-				if (V.plusAccident && V.plusAccident !== k) S.accBoth++;
+			if (V[k] <= 0 && inToilet) {
+				V[k] = 1; // already on the toilet: no accident, the visit empties it
+			} else if (V[k] <= 0) {
+				// One pending notice = one control loss = one counted accident per type.
 				// Bladder and bowels on the same tick (or before the notice is shown) produce one combined notice.
-				V.plusAccident = V.plusAccident && V.plusAccident !== k ? "both" : k;
+				const prev = V.plusAccident;
+				if (prev !== k && prev !== "both") {
+					if (k === "plusBladder") S.accWet++;
+					else S.accSoiled++;
+					if (prev) S.accBoth++;
+					V.plusAccident = prev ? "both" : k;
+				}
 				V[k] = MAX;
 			}
 		}
@@ -223,17 +230,20 @@
 	window.plusNeedsProp = function (prop) {
 		try {
 			if (typeof prop !== "string") return;
-			const v = PROPS[prop.toLowerCase().replace(/_/g, " ").trim()];
+			const key = prop.toLowerCase().replace(/_/g, " ").trim();
+			const v = PROPS[key];
 			if (!v) return;
 			const T = State.temporary;
 			T.plusNeedsPropsSeen = T.plusNeedsPropsSeen || {};
-			if (T.plusNeedsPropsSeen[prop]) return;
-			// School lunch is already counted once by plusNeedsSchoolLunch; don't add props shown during it.
-			if (State.variables.plusSchoolLunchDay === dayKey() && /^Canteen Lunch/.test(State.passage)) return;
-			T.plusNeedsPropsSeen[prop] = true;
-			const key = prop.toLowerCase().replace(/_/g, " ").trim();
+			if (T.plusNeedsPropsSeen[key]) return;
+			// School lunch is already counted once by plusNeedsSchoolLunch; don't add food props shown during it.
+			// Drinks (no hunger value) are still counted.
+			if (v[0] > 0 && State.variables.plusSchoolLunchDay === dayKey() && /^Canteen Lunch/.test(State.passage)) return;
+			T.plusNeedsPropsSeen[key] = true;
 			const ml = Number.isFinite(ML[key]) ? ML[key] : v[1] > 0 ? (v[0] > 0 ? ML["meal drink"] : ML.tap) : 0;
-			window.plusNeedsConsume(v[0], v[1] * DRINK_SCALE, undefined, ml);
+			// Mostly-liquid props (milkshake, hot cocoa, milk) count as drinks, not snacks.
+			const kind = v[1] > v[0] ? "drink" : undefined;
+			window.plusNeedsConsume(v[0], v[1] * DRINK_SCALE, kind, ml);
 		} catch (e) {
 			console.warn("plusNeedsProp", e);
 		}
@@ -343,6 +353,10 @@
 	});
 	function T_set(list) {
 		State.temporary.plusNeedsNoticeList = list;
+		const V = State.variables, empty = list.some(n => n.tier >= 3);
+		State.temporary.plusNeedsNoticeStress = empty;
+		// Pain is only applied outside soft mode (see plusNeedsTick).
+		State.temporary.plusNeedsNoticePain = empty && V.gamemode !== "soft";
 	}
 	// Show an accident notice at the top of the next normal (non-combat) passage.
 	$(document).on(":passagerender", function (ev) {

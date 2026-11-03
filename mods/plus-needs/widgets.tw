@@ -205,9 +205,10 @@ You feel refreshed.
 :: Widgets Plus Needs Notices [widget plusneeds]
 <<widget "plusNeedsNeedNotice">>
 	<<for _pnN range _plusNeedsNoticeList>>
-		<<if _pnN.tier gte 3>><span class="red">_pnN.text</span><<gstress>><<gpain>>
+		<<if _pnN.tier gte 3>><span class="red">_pnN.text</span>
 		<<elseif _pnN.tier is 2>><span class="purple">_pnN.text</span>
 		<<else>><span class="lblue">_pnN.text</span><</if>>
 		<br>
 	<</for>>
+	<<if _plusNeedsNoticeStress>><<gstress>><</if>><<if _plusNeedsNoticePain>><<gpain>><</if>>
 <</widget>>
