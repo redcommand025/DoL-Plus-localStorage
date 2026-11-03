@@ -62,7 +62,7 @@ EDITS.append(("Forest", "before_all", "<<forestlessdeep>>", '<<plusOutdoorToilet
 for _s in ["Science", "Maths", "English", "History", "Swimming"]:
     EDITS.append((_s + " Lesson", "before_all", "<<daydreamicon>><<link [[Daydream|" + _s + " Lesson Daydream]]>>", "<<plusClassAskLinks>>"))
 for p in ["Wardrobe", "Changing Room", "School Pool Wardrobe"]:
-    EDITS.append((p, "before", '<div id="wardrobewear">', "<<plusClothesLines>><<plusCleanLink>><br>"))
+    EDITS.append((p, "before", '<div id="wardrobewear">', "<<plusClothesLines>><<plusCleanLink>><<plusDiaperChangeLink>><br>"))
 EDITS.append(("High Street", "before", '<<if Time.dayState is "day" and $exposed is 0 and $photo', "<<plusLaundromatLink>><<plusPublicToiletLink \"Use the public toilets\">><<plusDrinkLink \"fountain\">>"))
 # Sidebar clothing caption: dirt/soiled adjectives next to the integrity word ("a grubby soiled frayed school shirt")
 EDITS.append(("Widgets Clothing caption text", "after", "<<set $_wornIntegrity to window.integrityWord($_wornItem,_args[0])>>",
@@ -84,6 +84,7 @@ for p, (h, t) in FOOD.items():
     EDITS.append((p, "prepend", None, "<<run plusNeedsConsume(%d, %d)>>" % (h, t)))
 
 JS_PATCHES = [
+    ("\tsetup.moddedClothes.under_lower = [];", '\n\tif (typeof window.plusDiaperItems === "function") setup.moddedClothes.under_lower.push(...window.plusDiaperItems());'),
     ("\tconst multiplier = secondsMapper[type] || 1;\n\tTime.pass(time * multiplier);",
      "\n\twindow.plusNeedsPassTotal = 0;"),
     ("function minutePassed(minutes) {", '\n\tif (typeof window.plusNeedsTick === "function") window.plusNeedsTick(minutes);'),

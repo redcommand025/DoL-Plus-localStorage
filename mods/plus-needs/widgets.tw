@@ -62,6 +62,18 @@
 	<<set _pnWhich to _args[0]>>
 	<<set _pnFloor to plusAccidentFloor()>>
 	<<set _pnGround to ($outside ? "ground" : "floor")>>
+	<<set _pnDiaper to (_pnFloor ? false : plusDiaperWorn())>>
+	<<set _pnAbsorbed to (_pnDiaper ? plusDiaperAbsorb(_pnWhich) : false)>>
+	<<if _pnAbsorbed>>
+	<span class="purple">
+		You couldn't hold it any longer and didn't make it to a toilet in time. <<if _pnWhich is "plusBladder">>You wet yourself, but your _pnDiaper.name absorbs it.<<elseif _pnWhich is "plusBowels">>You soil yourself, but your _pnDiaper.name holds it.<<else>>You have an accident at both ends, but your _pnDiaper.name takes it all.<</if>>
+		Nothing shows through your clothes.<<if plusDiaperFull(_pnDiaper)>> It feels full now. Another accident would leak.<</if>>
+	</span>
+	<br>Your cheeks warm a little<<if plusDiaperDef(_pnDiaper).cloth>>, and the cloth will need washing<<else>>, and you should change it soon<</if>>.
+	<<stress 6>><<gstress>><<set $hygiene to Math.clamp($hygiene + 200, 0, 2000)>>
+	<<set _pnSeen to plusAccidentSpotRoll(false, 0.5)>>
+	<<else>>
+	<<if _pnDiaper>><span class="red">Your _pnDiaper.name is already full and can't hold any more. It leaks.</span><br><</if>>
 	<span class="pink">
 	<<if _pnFloor>>
 		You couldn't hold it any longer and didn't make it to a toilet in time. With nothing on to catch it,
@@ -94,10 +106,13 @@
 	Your face burns with embarrassment<<if _pnULwet or _pnLwet>>, and your clothes will need a good wash<<elseif _pnFloor>>, and you hurry away from the _pnGround before anyone can connect it to you<</if>>.
 	<<stress 12>><<gstress>><<set $hygiene to Math.clamp($hygiene + 400, 0, 2000)>>
 	<<set _pnSeen to plusAccidentSpotRoll(_pnFloor)>>
+	<</if>>
 	<<if _pnSeen gt 0>>
 		<br><span class="red">
 		<<if _pnSeen is 2>>
 			<<if _pnFloor>>A group of students sees everything. Laughter and shrieks of disgust ring out, and by the end of the day it seems the whole school knows.<<else>>Some students notice straight away. Whispers and sniggers follow you down the corridor, and you know the story will spread.<</if>>
+		<<elseif _pnAbsorbed>>
+			<<print either("Someone nearby gives you an odd look, as if they can tell something happened.", "A passer-by notices you freeze and shift awkwardly, and raises an eyebrow.")>>
 		<<elseif _pnFloor>>
 			<<print either("Someone nearby sees the whole thing. They stare at the _pnGround, then at you, with open disgust.", "A passer-by stops dead and gapes at the _pnGround, then at you. Others turn to look.", "You hear a gasp behind you. Someone saw everything, and they're already pointing it out to others.")>>
 		<<else>>
@@ -118,8 +133,9 @@
 <<else>>
 	You use the toilet, then wash your hands at the sink. You didn't really need to go.
 <</if>>
-<<run plusNeedsToilet("both")>>
+<<run plusNeedsToilet("both")>><<plusDiaperToiletNote>>
 <br><br>
+<<plusDiaperChangeLink>>
 <<bathroomicon "sink">><<link [[Drink some water from the tap (0:01)|Plus Needs Toilet Drink]]>><<pass 1>><<run plusNeedsConsume(0, 400, "drink", 250)>><</link>>
 <br>
 <<getouticon>><<link [[Finish|$plusToiletReturn]]>><<set $eventskip to 1>><</link>>
@@ -254,7 +270,9 @@ You feel refreshed.
 	You find a quiet spot _pnWhere and relieve yourself. Nobody seems to have noticed. You feel much more comfortable.
 <</if>>
 <<run plusNeedsToilet("both")>>
+<<plusDiaperToiletNote>>
 <br><br>
+<<plusDiaperChangeLink>>
 <<getouticon>><<link [[Continue|$plusToiletReturn]]>><<set $eventskip to 1>><</link>>
 
 :: Widgets Plus Needs Notices [widget plusneeds]
@@ -372,7 +390,9 @@ A small laundromat sits off High Street. Rows of washing machines and tumble dry
 	_pnWhere and relieve yourself as quickly as you can. Nobody seems to have noticed. You feel much more comfortable, if a little ashamed.
 <</if>>
 <<run plusNeedsToilet("both")>>
+<<plusDiaperToiletNote>>
 <br><br>
+<<plusDiaperChangeLink>>
 <<getouticon>><<link [[Continue|$plusToiletReturn]]>><<set $eventskip to 1>><</link>>
 
 :: Widgets Plus Needs Continence [widget plusneeds]
@@ -421,7 +441,7 @@ A small laundromat sits off High Street. Rows of washing machines and tumble dry
 		<<else>>
 			You hurry down the empty corridor to the school toilets. Relief washes over you as you finally get to go. You wash your hands and head back.
 		<</if>>
-		<<run plusNeedsToilet("both")>>
+		<<run plusNeedsToilet("both")>><<plusDiaperToiletNote>><br><<plusDiaperChangeLink>>
 	<<else>>
 		<<if $plusThirst gte 1600>>
 			You aren't especially thirsty, but you walk to the fountain in the corridor and take a few sips anyway.
@@ -445,3 +465,27 @@ A small laundromat sits off High Street. Rows of washing machines and tumble dry
 <</if>>
 <br><br>
 <<link [[Next|$plusClassReturn]]>><<set $eventskip to 1>><</link>>
+
+
+:: Widgets Plus Needs Diapers [widget plusneeds]
+/* Flavour when using a toilet while wearing a diaper. */
+<<widget "plusDiaperToiletNote">>
+	<<set _pnD to plusDiaperWorn()>>
+	<<if _pnD>><br>You pull your _pnD.name down to use the toilet<<if _pnD.plusDiaperFill gt 0>>, grimacing at the weight of it,<</if>> and pull it back up afterwards.<</if>>
+<</widget>>
+/* "Change" link: throw away a used disposable diaper (toilets, wardrobes). */
+<<widget "plusDiaperChangeLink">>
+	<<if plusDiaperCanDispose()>>
+		<<bathroomicon "sink">><<link [[Take off your used $worn.under_lower.name and throw it away|Plus Needs Diaper Change]]>><<if $passage isnot "Plus Needs Diaper Change">><<set $plusDiaperReturn to $passage>><</if>><</link>>
+		<br>
+	<</if>>
+<</widget>>
+
+:: Plus Needs Diaper Change [plusneeds]
+<<effects>>
+<<set _pnName to $worn.under_lower.name>>
+You take off your used _pnName, wrap it up and drop it in the bin. You feel cleaner already.
+<<underlowerruined true>>
+<<if $worn.under_lower.type.includes("naked")>> You aren't wearing anything under your clothes now.<</if>>
+<br><br>
+<<getouticon>><<link [[Continue|$plusDiaperReturn]]>><<set $eventskip to 1>><</link>>
