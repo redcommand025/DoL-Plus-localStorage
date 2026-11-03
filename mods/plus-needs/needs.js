@@ -203,7 +203,7 @@ window.plusNowTs = function () {
 			}
 		}
 		function accident(k) {
-			// One pending notice = one control loss = one counted accident per type.
+			// One pending notice = one counted accident per type.
 			// Bladder and bowels on the same tick (or before the notice is shown) produce one combined notice.
 			const prev = V.plusAccident;
 			if (prev !== k && prev !== "both") {

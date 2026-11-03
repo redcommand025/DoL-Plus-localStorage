@@ -16826,7 +16826,7 @@ window.plusNowTs = function () {
 			}
 		}
 		function accident(k) {
-			// One pending notice = one control loss = one counted accident per type.
+			// One pending notice = one counted accident per type.
 			// Bladder and bowels on the same tick (or before the notice is shown) produce one combined notice.
 			const prev = V.plusAccident;
 			if (prev !== k && prev !== "both") {
@@ -974088,8 +974088,6 @@ Jordan materialises from the background radiation of the universe.
 		&lt;&lt;if _pnFloor&gt;&gt;&lt;&lt;stress 15&gt;&gt;&lt;&lt;else&gt;&gt;&lt;&lt;stress 10&gt;&gt;&lt;&lt;/if&gt;&gt;&lt;&lt;gstress&gt;&gt;
 		&lt;&lt;if _pnSeen is 2&gt;&gt;&lt;&lt;status -5&gt;&gt;&lt;&lt;lcool&gt;&gt;&lt;&lt;/if&gt;&gt;
 	&lt;&lt;/if&gt;&gt;
-	&lt;br&gt;You feel less in control of yourself.
-	&lt;&lt;if _pnOrig is &quot;plusBladder&quot;&gt;&gt;&lt;&lt;control -10&gt;&gt;&lt;&lt;lcontrol&gt;&gt;&lt;&lt;elseif _pnOrig is &quot;plusBowels&quot;&gt;&gt;&lt;&lt;control -25&gt;&gt;&lt;&lt;llcontrol&gt;&gt;&lt;&lt;else&gt;&gt;&lt;&lt;control -40&gt;&gt;&lt;&lt;lllcontrol&gt;&gt;&lt;&lt;/if&gt;&gt;
 &lt;&lt;/widget&gt;&gt;</tw-passagedata><tw-passagedata pid="16615" name="Plus Needs Toilet" tags="plusneeds" position="0,0" size="100,100">&lt;&lt;effects&gt;&gt;&lt;&lt;pass 3&gt;&gt;
 &lt;&lt;if $plusBladder lt 1900 or $plusBowels lt 1900&gt;&gt;
 	You find a free stall and use the toilet, then wash your hands at the sink. You feel much more comfortable.

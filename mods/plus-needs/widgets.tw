@@ -125,8 +125,6 @@
 		<<if _pnFloor>><<stress 15>><<else>><<stress 10>><</if>><<gstress>>
 		<<if _pnSeen is 2>><<status -5>><<lcool>><</if>>
 	<</if>>
-	<br>You feel less in control of yourself.
-	<<if _pnOrig is "plusBladder">><<control -10>><<lcontrol>><<elseif _pnOrig is "plusBowels">><<control -25>><<llcontrol>><<else>><<control -40>><<lllcontrol>><</if>>
 <</widget>>
 
 :: Plus Needs Toilet [plusneeds]
