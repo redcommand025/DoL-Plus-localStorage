@@ -58,6 +58,9 @@ SPOTS = [
 for p, a, c in SPOTS:
     EDITS.append((p, "before_all" if p == "Shopping Centre" else "before", a, c))
 EDITS.append(("Forest", "before_all", "<<forestlessdeep>>", '<<plusOutdoorToiletLink "forest">><br>'))
+for p in ["Wardrobe", "Changing Room", "School Pool Wardrobe"]:
+    EDITS.append((p, "before", '<div id="wardrobewear">', "<<plusClothesLines>><<plusCleanLink>><br>"))
+EDITS.append(("High Street", "before", '<<if Time.dayState is "day" and $exposed is 0 and $photo', "<<plusLaundromatLink>>"))
 for p in ["Kitchen", "Farm Kitchen"]:
     EDITS.append((p, "before", "<<kitchenDisplay>>", "<<plusKitchenSnack>><br>"))
 for p, (h, t) in FOOD.items():
@@ -67,6 +70,12 @@ JS_PATCHES = [
     ("\tconst multiplier = secondsMapper[type] || 1;\n\tTime.pass(time * multiplier);",
      "\n\twindow.plusNeedsPassTotal = 0;"),
     ("function minutePassed(minutes) {", '\n\tif (typeof window.plusNeedsTick === "function") window.plusNeedsTick(minutes);'),
+    ("\tlet result = V[skill];\n\tif (disableStatNerf === 0) {",
+     '\n\tif (skill === "seductionskill" && typeof window.plusDirtSeductionMul === "function") result *= window.plusDirtSeductionMul();'),
+    ("\t// Allure modifier\n\tallure *= V.settings.allureModifier;",
+     '\n\tif (typeof window.plusDirtAllureMul === "function") allure *= window.plusDirtAllureMul();'),
+    ("\tif (V.locker_suspicion > 0) statChange.lockerSuspicion(-1);",
+     '\n\tif (typeof window.plusDirtBullyDaily === "function") window.plusDirtBullyDaily();'),
     ("function wearProp(prop, colour, accColour) {", '\n\tif (typeof window.plusNeedsProp === "function") window.plusNeedsProp(prop);'),
 ]
 

@@ -40,7 +40,7 @@
 	window.plusNeedsInit = init;
 
 	/* Lifetime statistics shown on the Statistics page ("Needs" foldout). */
-	const STAT_KEYS = ["mlTotal", "drinks", "meals", "snacks", "kcal", "pees", "poops", "accWet", "accSoiled", "accBoth", "zeroHunger", "zeroThirst", "mlToday"];
+	const STAT_KEYS = ["mlTotal", "drinks", "meals", "snacks", "kcal", "pees", "poops", "accWet", "accSoiled", "accBoth", "zeroHunger", "zeroThirst", "mlToday", "smelt", "laundromat"];
 	function stats() {
 		const V = State.variables;
 		if (!V.plusNeedsStats || typeof V.plusNeedsStats !== "object") V.plusNeedsStats = {};
@@ -141,6 +141,9 @@
 				}
 			} catch (e) {}
 		}
+		try {
+			window.plusClothesTick(minutes);
+		} catch (e) {}
 		const inToilet = /^Plus Needs (Outdoor )?Toilet$/.test(State.passage || "");
 		for (const k of ["plusBladder", "plusBowels"]) {
 			let v = V[k] - loss[k];
@@ -367,6 +370,227 @@
 		const div = document.createElement("div");
 		div.className = "plus-needs-accident";
 		$(div).wiki(`<<plusNeedsAccident "${which}">><br><br>`);
+		ev.content.prepend(div);
+	});
+	/* ---- Per-item clothing dirt (0-2000) and soiling (0-10), stored on the clothing objects themselves
+	 * ($worn[slot].plusDirt / .plusSoiled) so they travel with the item into the wardrobe and back. ---- */
+	const CL_SLOTS = ["over_upper", "over_lower", "upper", "lower", "under_upper", "under_lower"];
+	const DIRT_MAX = 2000, SOIL_MAX = 10;
+	const DIRT_RATE = DIRT_MAX / (3 * 24 * 60); // ~0.46/min: a worn item goes 0 -> 2000 in 3 in-game days
+	const DIRT_PENALTY_FROM = 1000; // penalties start here and peak at DIRT_MAX
+	const ALLURE_PENALTY = 0.15, SEDUCTION_PENALTY = 0.15, BULLY_PENALTY = { school: 6, outside: 3 }; // at max dirt
+	const SMELL_PER_SOIL = 0.02, SMELL_CAP = 0.4, SMELL_COOLDOWN = 30 * 60; // seconds of game time
+	const LAUNDROMAT_COST = 500; // $money is in pence: GBP 5
+	const CLEAN_CHANCE = 0.6;
+	const ACC = { soil: 5, dirt: 250, overflowSoil: 2, overflowDirt: 100 };
+	// Passage-entry dirt spikes; first match wins, applied once per passage change, never in combat.
+	const NSFW = /Rape|Molest|Orgasm|Sex|Breastfeed|Seduce|Grope/;
+	const DIRT_SPIKES = [
+		[t => /Mud\b/.test(t), 300],
+		[t => /^(Moor Quicksand|Bog)/.test(t), 250],
+		[t => /^(Farm Work( Naked)?|Farm Fields|Farm Pigs.*|Livestock Field.*)$/.test(t), 200],
+		[t => /^Beach Run$/.test(t), 150],
+		[t => /Beach Volleyball Play$/.test(t), 120],
+		[(t, V) => /^Sewers/.test(t) || V.location === "sewers", 100],
+		[(t, V) => /Fight Finish$/.test(t) && V.outside && ["town", "alley", "park", "beach"].includes(V.location), 150],
+		[(t, V) => V.location === "forest" && /^Forest\b/.test(t), 60],
+	];
+	const PRIVATE_LOC = ["home", "forest", "lake", "moor", "bog", "sewers", "cabin", "wolf_cave", "underground", "tentworld", "dungeon", "prison", "island", "landfill", "estate", "changingroom"];
+	const PRIVATE_PASS = /Bath|Toilet|Bedroom|Wardrobe|Shower|Changing|Plus Needs|Bed\b|Locker|Sleep/;
+
+	function realItem(it) {
+		return !!(it && Array.isArray(it.type) && !it.type.includes("naked"));
+	}
+	function clInit(it) {
+		if (!Number.isFinite(it.plusDirt)) it.plusDirt = 0;
+		if (!Number.isFinite(it.plusSoiled)) it.plusSoiled = 0;
+		return it;
+	}
+	function addItem(it, dirt, soil) {
+		if (!realItem(it)) return;
+		clInit(it);
+		it.plusDirt = Math.clamp(it.plusDirt + dirt, 0, DIRT_MAX);
+		it.plusSoiled = Math.clamp(it.plusSoiled + soil, 0, SOIL_MAX);
+	}
+	function worn() {
+		const W = State.variables.worn;
+		if (!W) return [];
+		return CL_SLOTS.map(s => W[s]).filter(realItem).map(clInit);
+	}
+	function isSkirt(it) {
+		if (!it) return false;
+		if (it.skirt === 1 || (it.type || []).includes("dress")) return true;
+		try {
+			const d = setup.clothes.lower.find(c => c.name === it.name);
+			if (d && d.skirt === 1) return true;
+		} catch (e) {}
+		return /skirt|dress|kilt/i.test(it.name || "");
+	}
+	window.plusClothesWorn = worn;
+	window.plusClothesMaxDirt = () => worn().reduce((m, it) => Math.max(m, it.plusDirt), 0);
+	window.plusClothesSoiled = () => worn().reduce((m, it) => m + it.plusSoiled, 0);
+	function dirtFactor() {
+		try {
+			return Math.clamp((window.plusClothesMaxDirt() - DIRT_PENALTY_FROM) / (DIRT_MAX - DIRT_PENALTY_FROM), 0, 1);
+		} catch (e) {
+			return 0;
+		}
+	}
+	window.plusDirtFactor = dirtFactor;
+	window.plusDirtAllureMul = () => 1 - ALLURE_PENALTY * dirtFactor();
+	window.plusDirtSeductionMul = () => 1 - SEDUCTION_PENALTY * dirtFactor();
+	window.plusDirtBullyDaily = function () {
+		const V = State.variables, f = dirtFactor();
+		if (f <= 0) return;
+		if (Number.isFinite(V.bullytimer)) V.bullytimer += Math.round(BULLY_PENALTY.school * f);
+		if (Number.isFinite(V.bullytimeroutside)) V.bullytimeroutside += Math.round(BULLY_PENALTY.outside * f);
+	};
+	window.plusClothesDirt = function (amount) {
+		for (const it of worn()) addItem(it, amount, 0);
+	};
+	window.plusClothesTick = function (minutes) {
+		const V = State.variables;
+		if (!V || V.intro || !V.worn) return;
+		window.plusClothesDirt(DIRT_RATE * minutes);
+	};
+	/* Bowel accident: soil the underwear; a full (10) pair overflows into the lower item unless it's a skirt/dress. */
+	window.plusClothesAccident = function (which) {
+		const V = State.variables;
+		if (!V.worn || (which !== "plusBowels" && which !== "both")) return;
+		const ul = V.worn.under_lower, lo = V.worn.lower;
+		const loOk = realItem(lo) && !isSkirt(lo);
+		if (realItem(ul)) {
+			addItem(ul, ACC.dirt, ACC.soil);
+			if (ul.plusSoiled >= SOIL_MAX && loOk) addItem(lo, ACC.overflowDirt, ACC.overflowSoil);
+		} else if (loOk) {
+			addItem(lo, ACC.dirt, ACC.soil); // no underwear: it goes straight into the lower item
+		}
+	};
+	window.plusClothesIsSkirt = isSkirt;
+	/* Removal and daily decay, detected lazily so every undress path (wardrobe, events, sleep) is covered. */
+	window.plusClothesSync = function () {
+		const V = State.variables;
+		if (!V || !V.worn) return;
+		const day = dayKey();
+		if (!V.plusWornIds || typeof V.plusWornIds !== "object") V.plusWornIds = {};
+		if (!Number.isFinite(V.plusClothId)) V.plusClothId = 0;
+		for (const s of CL_SLOTS) {
+			const it = V.worn[s];
+			if (!realItem(it)) {
+				V.plusWornIds[s] = null;
+				continue;
+			}
+			clInit(it);
+			if (!it.plusId) {
+				it.plusId = ++V.plusClothId;
+				it.plusDay = day;
+			} else if (V.plusWornIds[s] !== it.plusId) {
+				it.plusSoiled = Math.max(0, it.plusSoiled - 1); // it was taken off since we last saw it
+			}
+			if (!Number.isFinite(it.plusDay)) it.plusDay = day;
+			if (day > it.plusDay) it.plusSoiled = Math.max(0, it.plusSoiled - (day - it.plusDay));
+			it.plusDay = day;
+			V.plusWornIds[s] = it.plusId;
+		}
+	};
+	window.plusClothesSpike = function (title) {
+		const V = State.variables;
+		if (!V || V.combat === 1 || NSFW.test(title)) return 0;
+		for (const [test, amt] of DIRT_SPIKES) {
+			if (test(title, V)) {
+				window.plusClothesDirt(amt);
+				return amt;
+			}
+		}
+		return 0;
+	};
+	window.plusSmellChance = function () {
+		return Math.min(SMELL_CAP, SMELL_PER_SOIL * window.plusClothesSoiled());
+	};
+	window.plusIsPublic = function (title) {
+		const V = State.variables;
+		return V.combat !== 1 && !PRIVATE_LOC.includes(V.location) && !PRIVATE_PASS.test(title || "");
+	};
+	window.plusSmellCheck = function (title) {
+		const V = State.variables, now = V.timeStamp || 0;
+		const c = window.plusSmellChance();
+		if (c <= 0 || !window.plusIsPublic(title)) return false;
+		if (Number.isFinite(V.plusSmellNext) && now < V.plusSmellNext) return false;
+		if (Math.random() >= c) return false;
+		V.plusSmellNext = now + SMELL_COOLDOWN;
+		stats().smelt++;
+		V.plusSmelt = true;
+		return true;
+	};
+	window.plusClothesClean = function () {
+		if (Math.random() >= CLEAN_CHANCE) return false;
+		for (const it of worn()) {
+			it.plusDirt = Math.max(0, it.plusDirt - (150 + Math.floor(Math.random() * 101)));
+			it.plusSoiled = Math.max(0, it.plusSoiled - (1 + Math.floor(Math.random() * 2)));
+		}
+		return true;
+	};
+	window.plusLaundromatCost = LAUNDROMAT_COST;
+	window.plusLaundromatWash = function () {
+		const V = State.variables;
+		if (!(V.money >= LAUNDROMAT_COST)) return false;
+		V.money -= LAUNDROMAT_COST;
+		for (const it of worn()) {
+			it.plusDirt = 0;
+			it.plusSoiled = 0;
+		}
+		for (const s of CL_SLOTS) {
+			const k = s.replace("_", "");
+			V[k + "wet"] = 0;
+			V[k + "wetstage"] = 0;
+		}
+		stats().laundromat++;
+		return true;
+	};
+	/* Short second-person status lines for the sidebar and wardrobes. */
+	window.plusClothesStatus = function () {
+		const out = [], d = window.plusClothesMaxDirt(), s = window.plusClothesSoiled();
+		if (d >= 1500) out.push(["red", "Your clothes are filthy and stained."]);
+		else if (d >= 1000) out.push(["purple", "Your clothes are dirty."]);
+		else if (d >= 500) out.push(["lblue", "Your clothes look a little grubby."]);
+		if (s >= 8) out.push(["red", "Your soiled clothes reek. People can smell you."]);
+		else if (s > 0) out.push(["purple", "Your clothes are soiled and smell unpleasant."]);
+		return out;
+	};
+	window.plusClothesItemLines = function () {
+		const W = State.variables.worn, out = [];
+		for (const s of CL_SLOTS) {
+			const it = W && W[s];
+			if (!realItem(it)) continue;
+			clInit(it);
+			const dl = it.plusDirt >= 1500 ? "filthy" : it.plusDirt >= 1000 ? "dirty" : it.plusDirt >= 500 ? "a little grubby" : "clean";
+			out.push(`Your ${it.name} ${it.plural ? "are" : "is"} ${dl}${it.plusSoiled > 0 ? " and soiled" : ""}.`);
+		}
+		return out;
+	};
+	$(document).on(":passagestart", function (ev) {
+		const V = State.variables;
+		if (!V || V.intro || !V.worn) return;
+		try {
+			window.plusClothesSync();
+			const t = ev.passage.title;
+			if (V.plusDirtLastPassage !== t || V.plusDirtLastTs !== V.timeStamp) {
+				V.plusDirtLastPassage = t;
+				V.plusDirtLastTs = V.timeStamp;
+				window.plusClothesSpike(t);
+				window.plusSmellCheck(t);
+			}
+		} catch (e) {
+			console.warn("plusClothes", e);
+		}
+	});
+	$(document).on(":passagerender", function (ev) {
+		const V = State.variables;
+		if (!V || !V.plusSmelt || V.combat === 1 || V.intro) return;
+		delete V.plusSmelt;
+		const div = document.createElement("div");
+		div.className = "plus-needs-smell";
+		$(div).wiki("<<plusNeedsSmellNotice>><br><br>");
 		ev.content.prepend(div);
 	});
 })();

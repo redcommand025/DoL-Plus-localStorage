@@ -38,12 +38,14 @@
 	<<if $plusThirst lte 0>>
 		<span class="red">Your head pounds from thirst.</span>
 	<</if>>
+	<<for _pnL range plusClothesStatus()>><span @class="_pnL[0]">_pnL[1]</span> <</for>>
 <</widget>>
 
 /* Link shown in bathrooms and toilets. */
 <<widget "plusToiletLink">>
 	<<bathroomicon "sink">><<link [[Use the toilet (0:03)|Plus Needs Toilet]]>><<set $plusToiletReturn to $passage>><</link>>
 	<br>
+	<<plusCleanLink>>
 <</widget>>
 
 <<widget "plusKitchenSnack">>
@@ -66,8 +68,10 @@
 	<<if _pnWhich is "plusBladder">><<set _pnUL to 180>><<set _pnL to 40>><<elseif _pnWhich is "plusBowels">><<set _pnUL to 160>><<set _pnL to 30>><<else>><<set _pnUL to 200>><<set _pnL to 50>><</if>>
 	<<set _pnULwet to !$worn.under_lower.type.includes("naked") and !waterproofCheck($worn.under_lower)>>
 	<<set _pnLwet to !$worn.lower.type.includes("naked") and !waterproofCheck($worn.lower)>>
-	<<if _pnULwet>><<underlowerwet _pnUL>><</if>>
+	<<if _pnULwet>><<set _pnUL to Math.max(0, Math.min(_pnUL, 95 - $underlowerwet))>><<underlowerwet _pnUL>><</if>>
 	<<if _pnLwet>><<lowerwet _pnL>><</if>>
+	/* Accident wetness on under_lower is capped at 95 so it stays below the "soaked through" (100) stage. */
+	<<run plusClothesAccident(_pnWhich)>>
 	<<if _pnULwet>>Your $worn.under_lower.name <<underlowerplural>> soaked<<if _pnLwet>>, and a damp patch is spreading on your $worn.lower.name<</if>>.
 	<<elseif _pnLwet>>A damp patch spreads on your $worn.lower.name.
 	<</if>>
@@ -147,6 +151,10 @@ You grab a quick snack and a glass of water.
 		Times you were starving (hunger hit 0): _pns.zeroHunger
 		<br>
 		Times you were parched (thirst hit 0): _pns.zeroThirst
+		<br>
+		Times people smelt your soiled clothes: _pns.smelt
+		<br>
+		Laundromat visits: _pns.laundromat
 		<br><br>
 	<</foldout>>
 <</widget>>
@@ -221,3 +229,76 @@ You feel refreshed.
 	<</for>>
 	<<if _plusNeedsNoticeStress>><<gstress>><</if>><<if _plusNeedsNoticePain>><<gpain>><</if>>
 <</widget>>
+
+
+:: Widgets Plus Needs Clothes [widget plusneeds]
+/* "Try to remove dirt" link: wardrobes, changing rooms, bathrooms and toilets. Shows the worn items' state when not clean. */
+<<widget "plusCleanLink">>
+	<<if plusClothesWorn().some(i => i.plusDirt gte 1 or i.plusSoiled gt 0)>>
+		<<bathroomicon "sink">><<link [[Try to scrub the dirt and stains out of your clothes (0:05)|Plus Needs Clean]]>><<set $plusCleanReturn to $passage>><</link>>
+		<br>
+	<</if>>
+<</widget>>
+
+<<widget "plusClothesLines">>
+	<<set _pnLines to plusClothesItemLines().filter(l => !l.endsWith(" is clean.") and !l.endsWith(" are clean."))>>
+	<<if _pnLines.length gt 0>><span class="plus-needs-clothes"><<for _pnLine range _pnLines>>_pnLine <</for>></span><br><br><</if>>
+<</widget>>
+
+<<widget "plusNeedsSmellNotice">>
+	<<set _pnSmell to either(
+		"Someone nearby wrinkles their nose and steps away from you. You realise they can smell your soiled clothes.",
+		"A passer-by recoils with a look of disgust. The smell coming from your clothes is impossible to miss.",
+		"You hear someone mutter about a horrible smell. Heads turn towards you, and you feel your cheeks burn.",
+		"A couple of people glance at you and pull faces, covering their noses as they hurry past.",
+		"Someone loudly asks what that stink is. You know exactly what it is, and so does everyone looking at you.")>>
+	<span class="pink">_pnSmell</span> <<stress 6>><<gstress>>
+<</widget>>
+
+/* Laundromat link for High Street. */
+<<widget "plusLaundromatLink">>
+	<<if $exposed lte 0>>
+		<<shopicon>><<link [[Laundromat (0:01)|Plus Needs Laundromat]]>><<pass 1>><</link>>
+		<br>
+	<</if>>
+<</widget>>
+
+:: Plus Needs Clean [plusneeds]
+<<effects>><<pass 5>>
+<<if plusClothesClean()>>
+	You wet some paper towels and scrub at the worst marks on your clothes. It takes a few minutes, but they look and smell noticeably better.
+<<else>>
+	You scrub at your clothes for a few minutes, but the marks barely budge. You only manage to spread them around.
+<</if>>
+<br><br>
+<<plusClothesLines>>
+<<plusCleanLink>>
+<<getouticon>><<link [[Finish|$plusCleanReturn]]>><<set $eventskip to 1>><</link>>
+
+:: Plus Needs Laundromat [plusneeds]
+<<effects>><<set $outside to 0>><<location "high">>
+A small laundromat sits off High Street. Rows of washing machines and tumble dryers hum along one wall, and a sign by the counter reads: "Service wash £5. Spare robes available while you wait."
+<br><br>
+<<plusClothesLines>>
+<<if $money gte plusLaundromatCost>>
+	<<shopicon>><<link [[Have your clothes washed and dried (1:00, £5)|Plus Needs Laundromat Wash]]>><</link>>
+<<else>>
+	<span class="grey">Have your clothes washed and dried (1:00, £5) - you can't afford it.</span>
+<</if>>
+<br>
+<<getouticon>><<link [[Leave (0:01)|High Street]]>><<pass 1>><</link>>
+<br>
+
+:: Plus Needs Laundromat Wash [plusneeds]
+<<effects>>
+<<if $money gte plusLaundromatCost>><<pass 60>><</if>>
+<<if plusLaundromatWash()>>
+	You hand over £5 and the attendant gives you a clean, thick spare robe to wear while you wait. You change in a small cubicle, sit on a plastic chair and flick through an old magazine while your clothes go round.
+	<br><br>
+	An hour later you change back into your clothes, warm from the dryer and completely clean.
+<<else>>
+	You can't afford the service wash.
+<</if>>
+<br><br>
+<<getouticon>><<link [[Leave (0:01)|High Street]]>><<pass 1>><</link>>
+<br>
