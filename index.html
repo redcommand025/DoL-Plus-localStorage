@@ -17601,6 +17601,7 @@ window.plusNowTs = function () {
 	const DEF = {};
 	for (const [name, variable, cost, pee, poop, cloth, desc] of DIAPERS) DEF[name] = { name, variable, cost, pee, poop, cap: pee + poop, cloth, desc };
 	window.plusDiaperDefs = DEF;
+	const ICONS = { plusdiaperlarge: "plusneeds/diaper-large.png", plusdiaper: "plusneeds/diaper.png", plusdiapersmall: "plusneeds/diaper-small.png", plusclothdiaper: "plusneeds/cloth-diaper.png", pluspullup: "plusneeds/pull-up.png" };
 	window.plusDiaperItems = function () {
 		return DIAPERS.map(([name, variable, cost, pee, poop, cloth, desc]) => new ClothesItem({
 			index: 0, slot: "under_lower", name, name_cap: name[0].toUpperCase() + name.slice(1),
@@ -17613,7 +17614,7 @@ window.plusNowTs = function () {
 			type: ["normal", "antitransparent"], anal_shield: 0, set: "under_lower", gender: "n", femininity: 0,
 			warmth: 2, cost, description: desc, shop: ["clothing"],
 			accessory: 0, accessory_colour: 0, accessory_colour_options: [], penis_img: 1, high_img: 0,
-			cursed: 0, location: 0, iconFile: "plain_panties.png", accIcon: 0, modder: "plusneeds",
+			cursed: 0, location: 0, iconFile: ICONS[variable], accIcon: 0, modder: "plusneeds",
 		}));
 	};
 	const def = it => (it && Array.isArray(it.type) && !it.type.includes("naked") && DEF[it.name]) || null;
@@ -974004,14 +974005,14 @@ Jordan materialises from the background radiation of the universe.
 
 /* Link shown in bathrooms and toilets. */
 &lt;&lt;widget &quot;plusToiletLink&quot;&gt;&gt;
-	&lt;&lt;bathroomicon &quot;sink&quot;&gt;&gt;&lt;&lt;link [[Use the toilet (0:03)|Plus Needs Toilet]]&gt;&gt;&lt;&lt;set $plusToiletReturn to $passage&gt;&gt;&lt;&lt;/link&gt;&gt;
+	&lt;&lt;bathroomicon &quot;toilet&quot;&gt;&gt;&lt;&lt;link [[Use the toilet (0:03)|Plus Needs Toilet]]&gt;&gt;&lt;&lt;set $plusToiletReturn to $passage&gt;&gt;&lt;&lt;/link&gt;&gt;
 	&lt;br&gt;
 	&lt;&lt;plusCleanLink&gt;&gt;
 &lt;&lt;/widget&gt;&gt;
 
 /* Public toilet block (beach, High Street): uses the same toilet passage, so stats are counted the same way. */
 &lt;&lt;widget &quot;plusPublicToiletLink&quot;&gt;&gt;
-	&lt;&lt;bathroomicon &quot;sink&quot;&gt;&gt;&lt;&lt;link `_args[0] + &quot; (0:03)&quot;` &quot;Plus Needs Toilet&quot;&gt;&gt;&lt;&lt;set $plusToiletReturn to $passage&gt;&gt;&lt;&lt;/link&gt;&gt;
+	&lt;&lt;bathroomicon &quot;toilet&quot;&gt;&gt;&lt;&lt;link `_args[0] + &quot; (0:03)&quot;` &quot;Plus Needs Toilet&quot;&gt;&gt;&lt;&lt;set $plusToiletReturn to $passage&gt;&gt;&lt;&lt;/link&gt;&gt;
 	&lt;br&gt;
 &lt;&lt;/widget&gt;&gt;
 
@@ -974162,17 +974163,27 @@ You grab a quick snack and a glass of water.
 		&lt;br&gt;&lt;br&gt;
 	&lt;&lt;/foldout&gt;&gt;
 &lt;&lt;/widget&gt;&gt;</tw-passagedata><tw-passagedata pid="16620" name="Widgets Plus Needs Spots" tags="widget plusneeds" position="0,0" size="100,100">/* Public drinking spot. _args[0]: &quot;fountain&quot; | &quot;stream&quot; | &quot;lake&quot; | &quot;cooler&quot; | &quot;cafe&quot; | &quot;shower&quot; */
+/* Link icon for a drinking spot: vanilla icons where one fits, the mod&#39;s drinking fountain otherwise. */
+&lt;&lt;widget &quot;plusDrinkIcon&quot;&gt;&gt;
+	&lt;&lt;switch _args[0]&gt;&gt;
+		&lt;&lt;case &quot;lake&quot; &quot;stream&quot;&gt;&gt;&lt;&lt;icon &quot;lake.png&quot;&gt;&gt;
+		&lt;&lt;case &quot;cooler&quot; &quot;cafe&quot;&gt;&gt;&lt;&lt;icon &quot;water-bottle.png&quot;&gt;&gt;
+		&lt;&lt;case &quot;shower&quot;&gt;&gt;&lt;&lt;bathroomicon &quot;shower&quot;&gt;&gt;
+		&lt;&lt;default&gt;&gt;&lt;&lt;icon &quot;plusneeds/drink-fountain.png&quot;&gt;&gt;
+	&lt;&lt;/switch&gt;&gt;
+&lt;&lt;/widget&gt;&gt;
+
 &lt;&lt;widget &quot;plusDrinkLink&quot;&gt;&gt;
 	&lt;&lt;set _pnSpot to _args[0]&gt;&gt;
 	&lt;&lt;if _pnSpot is &quot;stream&quot;&gt;&gt;&lt;&lt;set _pnLabel to &quot;Drink from the stream&quot;&gt;&gt;&lt;&lt;elseif _pnSpot is &quot;lake&quot;&gt;&gt;&lt;&lt;set _pnLabel to &quot;Drink some water from the lake&quot;&gt;&gt;&lt;&lt;elseif _pnSpot is &quot;cafe&quot;&gt;&gt;&lt;&lt;set _pnLabel to &quot;Ask for a glass of water&quot;&gt;&gt;&lt;&lt;else&gt;&gt;&lt;&lt;set _pnLabel to &quot;Drink some water&quot;&gt;&gt;&lt;&lt;/if&gt;&gt;
-	&lt;&lt;capture _pnSpot&gt;&gt;&lt;&lt;bathroomicon &quot;sink&quot;&gt;&gt;&lt;&lt;link `_pnLabel + &quot; (0:02)&quot;` &quot;Plus Needs Drink&quot;&gt;&gt;&lt;&lt;set $plusDrinkSpot to _pnSpot&gt;&gt;&lt;&lt;set $plusDrinkReturn to $passage&gt;&gt;&lt;&lt;/link&gt;&gt;&lt;&lt;/capture&gt;&gt;
+	&lt;&lt;capture _pnSpot&gt;&gt;&lt;&lt;plusDrinkIcon _pnSpot&gt;&gt;&lt;&lt;link `_pnLabel + &quot; (0:02)&quot;` &quot;Plus Needs Drink&quot;&gt;&gt;&lt;&lt;set $plusDrinkSpot to _pnSpot&gt;&gt;&lt;&lt;set $plusDrinkReturn to $passage&gt;&gt;&lt;&lt;/link&gt;&gt;&lt;&lt;/capture&gt;&gt;
 	&lt;br&gt;
 &lt;&lt;/widget&gt;&gt;
 
 /* Outdoor toilet. _args[0]: &quot;forest&quot; | &quot;park&quot; | &quot;beach&quot; | &quot;lake&quot; | &quot;wolfcave&quot; */
 &lt;&lt;widget &quot;plusOutdoorToiletLink&quot;&gt;&gt;
 	&lt;&lt;if _args[0] is &quot;beach&quot;&gt;&gt;&lt;&lt;set _pnLabel to &quot;Relieve yourself behind the dunes (0:03)&quot;&gt;&gt;&lt;&lt;elseif _args[0] is &quot;park&quot;&gt;&gt;&lt;&lt;set _pnLabel to &quot;Relieve yourself behind some bushes (0:03)&quot;&gt;&gt;&lt;&lt;elseif _args[0] is &quot;wolfcave&quot;&gt;&gt;&lt;&lt;set _pnLabel to &quot;Relieve yourself at the edge of the clearing (0:03)&quot;&gt;&gt;&lt;&lt;else&gt;&gt;&lt;&lt;set _pnLabel to &quot;Relieve yourself behind a tree (0:03)&quot;&gt;&gt;&lt;&lt;/if&gt;&gt;
-	&lt;&lt;set _pnOut to _args[0]&gt;&gt;&lt;&lt;capture _pnOut&gt;&gt;&lt;&lt;foresticon&gt;&gt;&lt;&lt;link _pnLabel &quot;Plus Needs Outdoor Toilet&quot;&gt;&gt;&lt;&lt;set $plusOutdoorSpot to _pnOut&gt;&gt;&lt;&lt;set $plusToiletReturn to $passage&gt;&gt;&lt;&lt;/link&gt;&gt;&lt;&lt;/capture&gt;&gt;
+	&lt;&lt;set _pnOut to _args[0]&gt;&gt;&lt;&lt;capture _pnOut&gt;&gt;&lt;&lt;if _pnOut is &quot;park&quot; or _pnOut is &quot;beach&quot;&gt;&gt;&lt;&lt;icon &quot;bush.png&quot;&gt;&gt;&lt;&lt;else&gt;&gt;&lt;&lt;foresticon&gt;&gt;&lt;&lt;/if&gt;&gt;&lt;&lt;link _pnLabel &quot;Plus Needs Outdoor Toilet&quot;&gt;&gt;&lt;&lt;set $plusOutdoorSpot to _pnOut&gt;&gt;&lt;&lt;set $plusToiletReturn to $passage&gt;&gt;&lt;&lt;/link&gt;&gt;&lt;&lt;/capture&gt;&gt;
 	&lt;br&gt;
 &lt;&lt;/widget&gt;&gt;</tw-passagedata><tw-passagedata pid="16621" name="Plus Needs Drink" tags="plusneeds" position="0,0" size="100,100">&lt;&lt;effects&gt;&gt;&lt;&lt;pass 2&gt;&gt;
 &lt;&lt;set _pnSpot to $plusDrinkSpot&gt;&gt;
@@ -974225,7 +974236,7 @@ You feel refreshed.
 &lt;&lt;/widget&gt;&gt;</tw-passagedata><tw-passagedata pid="16624" name="Widgets Plus Needs Clothes" tags="widget plusneeds" position="0,0" size="100,100">/* &quot;Try to remove dirt&quot; link: wardrobes, changing rooms, bathrooms and toilets. Shows the worn items&#39; state when not clean. */
 &lt;&lt;widget &quot;plusCleanLink&quot;&gt;&gt;
 	&lt;&lt;if plusClothesWorn().some(i =&gt; i.plusDirt gte 1 or i.plusSoiled gt 0)&gt;&gt;
-		&lt;&lt;bathroomicon &quot;sink&quot;&gt;&gt;&lt;&lt;link [[Try to scrub the dirt and stains out of your clothes (0:05)|Plus Needs Clean]]&gt;&gt;&lt;&lt;if $passage isnot &quot;Plus Needs Clean&quot;&gt;&gt;&lt;&lt;set $plusCleanReturn to $passage&gt;&gt;&lt;&lt;/if&gt;&gt;&lt;&lt;/link&gt;&gt;
+		&lt;&lt;icon &quot;plusneeds/scrub-clothes.png&quot;&gt;&gt;&lt;&lt;link [[Try to scrub the dirt and stains out of your clothes (0:05)|Plus Needs Clean]]&gt;&gt;&lt;&lt;if $passage isnot &quot;Plus Needs Clean&quot;&gt;&gt;&lt;&lt;set $plusCleanReturn to $passage&gt;&gt;&lt;&lt;/if&gt;&gt;&lt;&lt;/link&gt;&gt;
 		&lt;br&gt;
 	&lt;&lt;/if&gt;&gt;
 &lt;&lt;/widget&gt;&gt;
@@ -974256,7 +974267,7 @@ You feel refreshed.
 /* Laundromat link for High Street. */
 &lt;&lt;widget &quot;plusLaundromatLink&quot;&gt;&gt;
 	&lt;&lt;if $exposed lte 0&gt;&gt;
-		&lt;&lt;shopicon&gt;&gt;&lt;&lt;link [[Laundromat (0:01)|Plus Needs Laundromat]]&gt;&gt;&lt;&lt;pass 1&gt;&gt;&lt;&lt;/link&gt;&gt;
+		&lt;&lt;icon &quot;plusneeds/laundromat.png&quot;&gt;&gt;&lt;&lt;link [[Laundromat (0:01)|Plus Needs Laundromat]]&gt;&gt;&lt;&lt;pass 1&gt;&gt;&lt;&lt;/link&gt;&gt;
 		&lt;br&gt;
 	&lt;&lt;/if&gt;&gt;
 &lt;&lt;/widget&gt;&gt;</tw-passagedata><tw-passagedata pid="16625" name="Plus Needs Clean" tags="plusneeds" position="0,0" size="100,100">&lt;&lt;effects&gt;&gt;&lt;&lt;pass 5&gt;&gt;
@@ -974273,7 +974284,7 @@ A small laundromat sits off High Street. Rows of washing machines and tumble dry
 &lt;br&gt;&lt;br&gt;
 &lt;&lt;plusClothesLines&gt;&gt;
 &lt;&lt;if $money gte plusLaundromatCost&gt;&gt;
-	&lt;&lt;shopicon&gt;&gt;&lt;&lt;link [[Have your clothes washed and dried (1:00, £5)|Plus Needs Laundromat Wash]]&gt;&gt;&lt;&lt;/link&gt;&gt;
+	&lt;&lt;icon &quot;plusneeds/laundromat.png&quot;&gt;&gt;&lt;&lt;link [[Have your clothes washed and dried (1:00, £5)|Plus Needs Laundromat Wash]]&gt;&gt;&lt;&lt;/link&gt;&gt;
 &lt;&lt;else&gt;&gt;
 	&lt;span class=&quot;grey&quot;&gt;Have your clothes washed and dried (1:00, £5) - you can&#39;t afford it.&lt;/span&gt;
 &lt;&lt;/if&gt;&gt;
@@ -974294,7 +974305,7 @@ A small laundromat sits off High Street. Rows of washing machines and tumble dry
 	&lt;&lt;if plusFindPlaceAvailable()&gt;&gt;
 		&lt;&lt;set _pnFK to plusFindPlaceKind()&gt;&gt;
 		&lt;&lt;if _pnFK is &quot;school&quot;&gt;&gt;&lt;&lt;set _pnLabel to &quot;Find somewhere out of sight to go (0:03)&quot;&gt;&gt;&lt;&lt;elseif _pnFK is &quot;busy&quot;&gt;&gt;&lt;&lt;set _pnLabel to &quot;Find a place to go (0:03)&quot;&gt;&gt;&lt;&lt;else&gt;&gt;&lt;&lt;set _pnLabel to &quot;Find a quiet corner to go (0:03)&quot;&gt;&gt;&lt;&lt;/if&gt;&gt;
-		&lt;&lt;foresticon&gt;&gt;&lt;&lt;link _pnLabel &quot;Plus Needs Find Place&quot;&gt;&gt;&lt;&lt;set $plusToiletReturn to $passage&gt;&gt;&lt;&lt;/link&gt;&gt;
+		&lt;&lt;icon &quot;plusneeds/find-place.png&quot;&gt;&gt;&lt;&lt;link _pnLabel &quot;Plus Needs Find Place&quot;&gt;&gt;&lt;&lt;set $plusToiletReturn to $passage&gt;&gt;&lt;&lt;/link&gt;&gt;
 		&lt;br&gt;
 	&lt;&lt;/if&gt;&gt;
 &lt;&lt;/widget&gt;&gt;</tw-passagedata><tw-passagedata pid="16629" name="Plus Needs Find Place" tags="plusneeds" position="0,0" size="100,100">&lt;&lt;effects&gt;&gt;&lt;&lt;pass 3&gt;&gt;
@@ -974340,9 +974351,9 @@ A small laundromat sits off High Street. Rows of washing machines and tumble dry
 
 /* Classroom request links (lesson passages) */
 &lt;&lt;widget &quot;plusClassAskLinks&quot;&gt;&gt;
-	&lt;&lt;bathroomicon&gt;&gt;&lt;&lt;link &quot;Ask to go to the restroom&quot; &quot;Plus Needs Class Ask&quot;&gt;&gt;&lt;&lt;if plusClassAsk(&quot;toilet&quot;)&gt;&gt;&lt;&lt;pass 5&gt;&gt;&lt;&lt;else&gt;&gt;&lt;&lt;pass 1&gt;&gt;&lt;&lt;/if&gt;&gt;&lt;&lt;/link&gt;&gt;
+	&lt;&lt;icon &quot;plusneeds/class-ask.png&quot;&gt;&gt;&lt;&lt;link &quot;Ask to go to the restroom&quot; &quot;Plus Needs Class Ask&quot;&gt;&gt;&lt;&lt;if plusClassAsk(&quot;toilet&quot;)&gt;&gt;&lt;&lt;pass 5&gt;&gt;&lt;&lt;else&gt;&gt;&lt;&lt;pass 1&gt;&gt;&lt;&lt;/if&gt;&gt;&lt;&lt;/link&gt;&gt;
 	&lt;br&gt;
-	&lt;&lt;bathroomicon &quot;sink&quot;&gt;&gt;&lt;&lt;link &quot;Ask to get a drink of water&quot; &quot;Plus Needs Class Ask&quot;&gt;&gt;&lt;&lt;if plusClassAsk(&quot;drink&quot;)&gt;&gt;&lt;&lt;pass 5&gt;&gt;&lt;&lt;else&gt;&gt;&lt;&lt;pass 1&gt;&gt;&lt;&lt;/if&gt;&gt;&lt;&lt;/link&gt;&gt;
+	&lt;&lt;icon &quot;plusneeds/drink-fountain.png&quot;&gt;&gt;&lt;&lt;link &quot;Ask to get a drink of water&quot; &quot;Plus Needs Class Ask&quot;&gt;&gt;&lt;&lt;if plusClassAsk(&quot;drink&quot;)&gt;&gt;&lt;&lt;pass 5&gt;&gt;&lt;&lt;else&gt;&gt;&lt;&lt;pass 1&gt;&gt;&lt;&lt;/if&gt;&gt;&lt;&lt;/link&gt;&gt;
 	&lt;br&gt;
 &lt;&lt;/widget&gt;&gt;</tw-passagedata><tw-passagedata pid="16631" name="Plus Needs Class Ask" tags="plusneeds" position="0,0" size="100,100">&lt;&lt;effects&gt;&gt;
 &lt;&lt;set _t to $plusClassTeacherName&gt;&gt;
@@ -974393,7 +974404,7 @@ A small laundromat sits off High Street. Rows of washing machines and tumble dry
 /* &quot;Change&quot; link: throw away a used disposable diaper (toilets, wardrobes). */
 &lt;&lt;widget &quot;plusDiaperChangeLink&quot;&gt;&gt;
 	&lt;&lt;if plusDiaperCanDispose()&gt;&gt;
-		&lt;&lt;bathroomicon &quot;sink&quot;&gt;&gt;&lt;&lt;link [[Take off your used $worn.under_lower.name and throw it away|Plus Needs Diaper Change]]&gt;&gt;&lt;&lt;if $passage isnot &quot;Plus Needs Diaper Change&quot;&gt;&gt;&lt;&lt;set $plusDiaperReturn to $passage&gt;&gt;&lt;&lt;/if&gt;&gt;&lt;&lt;/link&gt;&gt;
+		&lt;&lt;icon &quot;plusneeds/diaper-change.png&quot;&gt;&gt;&lt;&lt;link [[Take off your used $worn.under_lower.name and throw it away|Plus Needs Diaper Change]]&gt;&gt;&lt;&lt;if $passage isnot &quot;Plus Needs Diaper Change&quot;&gt;&gt;&lt;&lt;set $plusDiaperReturn to $passage&gt;&gt;&lt;&lt;/if&gt;&gt;&lt;&lt;/link&gt;&gt;
 		&lt;br&gt;
 	&lt;&lt;/if&gt;&gt;
 &lt;&lt;/widget&gt;&gt;</tw-passagedata><tw-passagedata pid="16633" name="Plus Needs Diaper Change" tags="plusneeds" position="0,0" size="100,100">&lt;&lt;effects&gt;&gt;

@@ -978,6 +978,7 @@ window.plusNowTs = function () {
 	const DEF = {};
 	for (const [name, variable, cost, pee, poop, cloth, desc] of DIAPERS) DEF[name] = { name, variable, cost, pee, poop, cap: pee + poop, cloth, desc };
 	window.plusDiaperDefs = DEF;
+	const ICONS = { plusdiaperlarge: "plusneeds/diaper-large.png", plusdiaper: "plusneeds/diaper.png", plusdiapersmall: "plusneeds/diaper-small.png", plusclothdiaper: "plusneeds/cloth-diaper.png", pluspullup: "plusneeds/pull-up.png" };
 	window.plusDiaperItems = function () {
 		return DIAPERS.map(([name, variable, cost, pee, poop, cloth, desc]) => new ClothesItem({
 			index: 0, slot: "under_lower", name, name_cap: name[0].toUpperCase() + name.slice(1),
@@ -990,7 +991,7 @@ window.plusNowTs = function () {
 			type: ["normal", "antitransparent"], anal_shield: 0, set: "under_lower", gender: "n", femininity: 0,
 			warmth: 2, cost, description: desc, shop: ["clothing"],
 			accessory: 0, accessory_colour: 0, accessory_colour_options: [], penis_img: 1, high_img: 0,
-			cursed: 0, location: 0, iconFile: "plain_panties.png", accIcon: 0, modder: "plusneeds",
+			cursed: 0, location: 0, iconFile: ICONS[variable], accIcon: 0, modder: "plusneeds",
 		}));
 	};
 	const def = it => (it && Array.isArray(it.type) && !it.type.includes("naked") && DEF[it.name]) || null;

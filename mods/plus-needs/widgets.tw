@@ -42,14 +42,14 @@
 
 /* Link shown in bathrooms and toilets. */
 <<widget "plusToiletLink">>
-	<<bathroomicon "sink">><<link [[Use the toilet (0:03)|Plus Needs Toilet]]>><<set $plusToiletReturn to $passage>><</link>>
+	<<bathroomicon "toilet">><<link [[Use the toilet (0:03)|Plus Needs Toilet]]>><<set $plusToiletReturn to $passage>><</link>>
 	<br>
 	<<plusCleanLink>>
 <</widget>>
 
 /* Public toilet block (beach, High Street): uses the same toilet passage, so stats are counted the same way. */
 <<widget "plusPublicToiletLink">>
-	<<bathroomicon "sink">><<link `_args[0] + " (0:03)"` "Plus Needs Toilet">><<set $plusToiletReturn to $passage>><</link>>
+	<<bathroomicon "toilet">><<link `_args[0] + " (0:03)"` "Plus Needs Toilet">><<set $plusToiletReturn to $passage>><</link>>
 	<br>
 <</widget>>
 
@@ -218,17 +218,27 @@ You grab a quick snack and a glass of water.
 
 :: Widgets Plus Needs Spots [widget plusneeds]
 /* Public drinking spot. _args[0]: "fountain" | "stream" | "lake" | "cooler" | "cafe" | "shower" */
+/* Link icon for a drinking spot: vanilla icons where one fits, the mod's drinking fountain otherwise. */
+<<widget "plusDrinkIcon">>
+	<<switch _args[0]>>
+		<<case "lake" "stream">><<icon "lake.png">>
+		<<case "cooler" "cafe">><<icon "water-bottle.png">>
+		<<case "shower">><<bathroomicon "shower">>
+		<<default>><<icon "plusneeds/drink-fountain.png">>
+	<</switch>>
+<</widget>>
+
 <<widget "plusDrinkLink">>
 	<<set _pnSpot to _args[0]>>
 	<<if _pnSpot is "stream">><<set _pnLabel to "Drink from the stream">><<elseif _pnSpot is "lake">><<set _pnLabel to "Drink some water from the lake">><<elseif _pnSpot is "cafe">><<set _pnLabel to "Ask for a glass of water">><<else>><<set _pnLabel to "Drink some water">><</if>>
-	<<capture _pnSpot>><<bathroomicon "sink">><<link `_pnLabel + " (0:02)"` "Plus Needs Drink">><<set $plusDrinkSpot to _pnSpot>><<set $plusDrinkReturn to $passage>><</link>><</capture>>
+	<<capture _pnSpot>><<plusDrinkIcon _pnSpot>><<link `_pnLabel + " (0:02)"` "Plus Needs Drink">><<set $plusDrinkSpot to _pnSpot>><<set $plusDrinkReturn to $passage>><</link>><</capture>>
 	<br>
 <</widget>>
 
 /* Outdoor toilet. _args[0]: "forest" | "park" | "beach" | "lake" | "wolfcave" */
 <<widget "plusOutdoorToiletLink">>
 	<<if _args[0] is "beach">><<set _pnLabel to "Relieve yourself behind the dunes (0:03)">><<elseif _args[0] is "park">><<set _pnLabel to "Relieve yourself behind some bushes (0:03)">><<elseif _args[0] is "wolfcave">><<set _pnLabel to "Relieve yourself at the edge of the clearing (0:03)">><<else>><<set _pnLabel to "Relieve yourself behind a tree (0:03)">><</if>>
-	<<set _pnOut to _args[0]>><<capture _pnOut>><<foresticon>><<link _pnLabel "Plus Needs Outdoor Toilet">><<set $plusOutdoorSpot to _pnOut>><<set $plusToiletReturn to $passage>><</link>><</capture>>
+	<<set _pnOut to _args[0]>><<capture _pnOut>><<if _pnOut is "park" or _pnOut is "beach">><<icon "bush.png">><<else>><<foresticon>><</if>><<link _pnLabel "Plus Needs Outdoor Toilet">><<set $plusOutdoorSpot to _pnOut>><<set $plusToiletReturn to $passage>><</link>><</capture>>
 	<br>
 <</widget>>
 
@@ -294,7 +304,7 @@ You feel refreshed.
 /* "Try to remove dirt" link: wardrobes, changing rooms, bathrooms and toilets. Shows the worn items' state when not clean. */
 <<widget "plusCleanLink">>
 	<<if plusClothesWorn().some(i => i.plusDirt gte 1 or i.plusSoiled gt 0)>>
-		<<bathroomicon "sink">><<link [[Try to scrub the dirt and stains out of your clothes (0:05)|Plus Needs Clean]]>><<if $passage isnot "Plus Needs Clean">><<set $plusCleanReturn to $passage>><</if>><</link>>
+		<<icon "plusneeds/scrub-clothes.png">><<link [[Try to scrub the dirt and stains out of your clothes (0:05)|Plus Needs Clean]]>><<if $passage isnot "Plus Needs Clean">><<set $plusCleanReturn to $passage>><</if>><</link>>
 		<br>
 	<</if>>
 <</widget>>
@@ -325,7 +335,7 @@ You feel refreshed.
 /* Laundromat link for High Street. */
 <<widget "plusLaundromatLink">>
 	<<if $exposed lte 0>>
-		<<shopicon>><<link [[Laundromat (0:01)|Plus Needs Laundromat]]>><<pass 1>><</link>>
+		<<icon "plusneeds/laundromat.png">><<link [[Laundromat (0:01)|Plus Needs Laundromat]]>><<pass 1>><</link>>
 		<br>
 	<</if>>
 <</widget>>
@@ -348,7 +358,7 @@ A small laundromat sits off High Street. Rows of washing machines and tumble dry
 <br><br>
 <<plusClothesLines>>
 <<if $money gte plusLaundromatCost>>
-	<<shopicon>><<link [[Have your clothes washed and dried (1:00, £5)|Plus Needs Laundromat Wash]]>><</link>>
+	<<icon "plusneeds/laundromat.png">><<link [[Have your clothes washed and dried (1:00, £5)|Plus Needs Laundromat Wash]]>><</link>>
 <<else>>
 	<span class="grey">Have your clothes washed and dried (1:00, £5) - you can't afford it.</span>
 <</if>>
@@ -375,7 +385,7 @@ A small laundromat sits off High Street. Rows of washing machines and tumble dry
 	<<if plusFindPlaceAvailable()>>
 		<<set _pnFK to plusFindPlaceKind()>>
 		<<if _pnFK is "school">><<set _pnLabel to "Find somewhere out of sight to go (0:03)">><<elseif _pnFK is "busy">><<set _pnLabel to "Find a place to go (0:03)">><<else>><<set _pnLabel to "Find a quiet corner to go (0:03)">><</if>>
-		<<foresticon>><<link _pnLabel "Plus Needs Find Place">><<set $plusToiletReturn to $passage>><</link>>
+		<<icon "plusneeds/find-place.png">><<link _pnLabel "Plus Needs Find Place">><<set $plusToiletReturn to $passage>><</link>>
 		<br>
 	<</if>>
 <</widget>>
@@ -427,9 +437,9 @@ A small laundromat sits off High Street. Rows of washing machines and tumble dry
 
 /* Classroom request links (lesson passages) */
 <<widget "plusClassAskLinks">>
-	<<bathroomicon>><<link "Ask to go to the restroom" "Plus Needs Class Ask">><<if plusClassAsk("toilet")>><<pass 5>><<else>><<pass 1>><</if>><</link>>
+	<<icon "plusneeds/class-ask.png">><<link "Ask to go to the restroom" "Plus Needs Class Ask">><<if plusClassAsk("toilet")>><<pass 5>><<else>><<pass 1>><</if>><</link>>
 	<br>
-	<<bathroomicon "sink">><<link "Ask to get a drink of water" "Plus Needs Class Ask">><<if plusClassAsk("drink")>><<pass 5>><<else>><<pass 1>><</if>><</link>>
+	<<icon "plusneeds/drink-fountain.png">><<link "Ask to get a drink of water" "Plus Needs Class Ask">><<if plusClassAsk("drink")>><<pass 5>><<else>><<pass 1>><</if>><</link>>
 	<br>
 <</widget>>
 
@@ -487,7 +497,7 @@ A small laundromat sits off High Street. Rows of washing machines and tumble dry
 /* "Change" link: throw away a used disposable diaper (toilets, wardrobes). */
 <<widget "plusDiaperChangeLink">>
 	<<if plusDiaperCanDispose()>>
-		<<bathroomicon "sink">><<link [[Take off your used $worn.under_lower.name and throw it away|Plus Needs Diaper Change]]>><<if $passage isnot "Plus Needs Diaper Change">><<set $plusDiaperReturn to $passage>><</if>><</link>>
+		<<icon "plusneeds/diaper-change.png">><<link [[Take off your used $worn.under_lower.name and throw it away|Plus Needs Diaper Change]]>><<if $passage isnot "Plus Needs Diaper Change">><<set $plusDiaperReturn to $passage>><</if>><</link>>
 		<br>
 	<</if>>
 <</widget>>
