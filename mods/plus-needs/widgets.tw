@@ -64,6 +64,8 @@
 	</span>
 	Your face burns with embarrassment, and your clothes will need a good wash.
 	<<stress 12>><<gstress>><<set $hygiene to Math.clamp($hygiene + 400, 0, 2000)>>
+	<br>You feel less in control of yourself.
+	<<if _pnWhich is "plusBladder">><<control -10>><<lcontrol>><<elseif _pnWhich is "plusBowels">><<control -25>><<llcontrol>><<else>><<control -40>><<lllcontrol>><</if>>
 <</widget>>
 
 :: Plus Needs Toilet [plusneeds]
