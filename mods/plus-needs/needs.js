@@ -228,6 +228,8 @@
 			const T = State.temporary;
 			T.plusNeedsPropsSeen = T.plusNeedsPropsSeen || {};
 			if (T.plusNeedsPropsSeen[prop]) return;
+			// School lunch is already counted once by plusNeedsSchoolLunch; don't add props shown during it.
+			if (State.variables.plusSchoolLunchDay === dayKey() && /^Canteen Lunch/.test(State.passage)) return;
 			T.plusNeedsPropsSeen[prop] = true;
 			const key = prop.toLowerCase().replace(/_/g, " ").trim();
 			const ml = Number.isFinite(ML[key]) ? ML[key] : v[1] > 0 ? (v[0] > 0 ? ML["meal drink"] : ML.tap) : 0;
@@ -237,8 +239,27 @@
 		}
 	};
 
-	$(document).on(":passagestart", function () {
+	/* Eating lunch in the school canteen: a good meal plus a glass of water, once per day. */
+	const SCHOOL_LUNCH = ["Canteen Lunch", "Canteen Lunch Robin", "Canteen Lunch Robin CD 1", "Canteen Lunch Robin Dolp",
+		"Canteen Robin Whitney", "Canteen Lunch Intervene", "Canteen Lunch Kylar", "Canteen Lunch Sydney"];
+	window.plusNeedsSchoolLunch = function () {
+		const V = State.variables;
+		if (!V) return;
 		init();
+		const d = dayKey();
+		if (V.plusSchoolLunchDay === d) return;
+		V.plusSchoolLunchDay = d;
+		window.plusNeedsConsume(1000, 0, "meal", 0); // good meal
+		window.plusNeedsConsume(0, 300, "drink", ML.tap); // glass of water (~250 ml)
+	};
+
+	$(document).on(":passagestart", function (ev) {
+		init();
+		try {
+			if (SCHOOL_LUNCH.includes(ev.passage.title)) window.plusNeedsSchoolLunch();
+		} catch (e) {
+			console.warn("plusNeedsSchoolLunch", e);
+		}
 		try {
 			if (State.variables) stats();
 		} catch (e) {}

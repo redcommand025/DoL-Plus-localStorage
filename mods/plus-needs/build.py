@@ -27,7 +27,7 @@ def strip_marks(t):
 
 # Passage edits: (passage, mode, anchor, code). mode: before|after|prepend|append
 FOOD = {  # explicit meals that have no food prop: (hunger, thirst)
-    "Canteen Lunch": (900, 150), "Asylum Breakfast": (800, 150), "Flats Poppy Eat Meal": (900, 150),
+    "Asylum Breakfast": (800, 150), "Flats Poppy Eat Meal": (900, 150),
     "Forest Cabin Food": (750, 100), "Avery Date Cheap": (850, 200),
     "Whitney Home Dawn Breakfast Toast Eat": (600, 100), "Prison Dinner Kylar": (750, 100),
 }
