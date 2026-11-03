@@ -131,6 +131,8 @@ You grab a quick snack and a glass of water.
 		<br>
 		Toilet trips (bowels): _pns.poops
 		<br>
+		Times spotted relieving yourself outdoors: <<print _pns.spotted or 0>>
+		<br>
 		Accidents (wet/soiled/both at once): _pns.accWet/_pns.accSoiled/_pns.accBoth
 		<br>
 		Times you were starving (hunger hit 0): _pns.zeroHunger
@@ -139,3 +141,63 @@ You grab a quick snack and a glass of water.
 		<br><br>
 	<</foldout>>
 <</widget>>
+
+:: Widgets Plus Needs Spots [widget plusneeds]
+/* Public drinking spot. _args[0]: "fountain" | "stream" | "lake" | "cooler" | "cafe" | "shower" */
+<<widget "plusDrinkLink">>
+	<<set _pnSpot to _args[0]>>
+	<<if _pnSpot is "stream">><<set _pnLabel to "Drink from the stream">><<elseif _pnSpot is "lake">><<set _pnLabel to "Drink some water from the lake">><<elseif _pnSpot is "cafe">><<set _pnLabel to "Ask for a glass of water">><<else>><<set _pnLabel to "Drink some water">><</if>>
+	<<capture _pnSpot>><<bathroomicon "sink">><<link `_pnLabel + " (0:02)"` "Plus Needs Drink">><<set $plusDrinkSpot to _pnSpot>><<set $plusDrinkReturn to $passage>><</link>><</capture>>
+	<br>
+<</widget>>
+
+/* Outdoor toilet. _args[0]: "forest" | "park" | "beach" | "lake" | "wolfcave" */
+<<widget "plusOutdoorToiletLink">>
+	<<if _args[0] is "beach">><<set _pnLabel to "Relieve yourself behind the dunes (0:03)">><<elseif _args[0] is "park">><<set _pnLabel to "Relieve yourself behind some bushes (0:03)">><<elseif _args[0] is "wolfcave">><<set _pnLabel to "Relieve yourself at the edge of the clearing (0:03)">><<else>><<set _pnLabel to "Relieve yourself behind a tree (0:03)">><</if>>
+	<<set _pnOut to _args[0]>><<capture _pnOut>><<foresticon>><<link _pnLabel "Plus Needs Outdoor Toilet">><<set $plusOutdoorSpot to _pnOut>><<set $plusToiletReturn to $passage>><</link>><</capture>>
+	<br>
+<</widget>>
+
+:: Plus Needs Drink [plusneeds]
+<<effects>><<pass 2>>
+<<set _pnSpot to $plusDrinkSpot>>
+<<if _pnSpot is "stream">>
+	You kneel by the stream, cup your hands in the cold, clear water and drink.
+	<<run plusNeedsConsume(0, 350, "drink", plusNeedsML["stream"])>>
+<<elseif _pnSpot is "lake">>
+	You crouch at the water's edge and drink a few handfuls of cool lake water.
+	<<run plusNeedsConsume(0, 350, "drink", plusNeedsML["lake"])>>
+<<elseif _pnSpot is "cooler">>
+	You fill a paper cup at the water cooler and drink it down.
+	<<run plusNeedsConsume(0, 250, "drink", plusNeedsML["water cooler"])>>
+<<elseif _pnSpot is "cafe">>
+	You ask for a glass of tap water. It's brought over with a polite smile, and you drink it gratefully.
+	<<run plusNeedsConsume(0, 300, "drink", plusNeedsML["cafe water"])>>
+<<elseif _pnSpot is "shower">>
+	You find the tap by the beach showers and drink some fresh water.
+	<<run plusNeedsConsume(0, 250, "drink", plusNeedsML["fountain"])>>
+<<else>>
+	You lean over the drinking fountain and take a long drink of cool water.
+	<<run plusNeedsConsume(0, 250, "drink", plusNeedsML["fountain"])>>
+<</if>>
+You feel refreshed.
+<br><br>
+<<getouticon>><<link [[Finish|$plusDrinkReturn]]>><<set $eventskip to 1>><</link>>
+
+:: Plus Needs Outdoor Toilet [plusneeds]
+<<effects>><<pass 3>>
+<<set _pnChance to plusNeedsSpotChance($plusOutdoorSpot)>>
+<<set _pnSpotted to random(1, 1000) lte _pnChance * 1000>>
+<<if $plusOutdoorSpot is "beach">><<set _pnWhere to "behind a dune">><<elseif $plusOutdoorSpot is "park">><<set _pnWhere to "behind a clump of bushes">><<elseif $plusOutdoorSpot is "wolfcave">><<set _pnWhere to "at the edge of the clearing">><<else>><<set _pnWhere to "behind a thick tree">><</if>>
+<<if _pnSpotted>>
+	You find a spot _pnWhere and relieve yourself. Just as you finish, you hear footsteps. Someone walking by stops and stares at you, then quickly looks away.
+	<br><br>
+	<span class="red">Your cheeks burn with embarrassment.</span> You straighten your clothes and hurry off without looking back.
+	<<stress 6>><<gstress>>
+	<<run plusNeedsSpotted()>>
+<<else>>
+	You find a quiet spot _pnWhere and relieve yourself. Nobody seems to have noticed. You feel much more comfortable.
+<</if>>
+<<run plusNeedsToilet("both")>>
+<br><br>
+<<getouticon>><<link [[Continue|$plusToiletReturn]]>><<set $eventskip to 1>><</link>>

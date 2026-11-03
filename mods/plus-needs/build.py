@@ -39,6 +39,25 @@ EDITS.append(("Strip Club Bathroom", "before", "<<getouticon>>", "<<plusToiletLi
 EDITS.append(("mobileStats", "before", "<<if Number.isFinite($drunk) and $drunk gt 0>>", "<<plusNeedsMobile>>\n\t"))
 EDITS.append(("Statistics", "before", '<<foldout false "_miscFoldout">>', "<<plusNeedsStatistics>>\n\t"))
 EDITS.append(("Mansion Bathroom", "append", None, "<br><<plusToiletLink>>"))
+# Public drinking spots and extra toilets: (passage, anchor, code). Inserted before the anchor.
+SPOTS = [
+    ("Dance Studio", "<<barbicon>><<link [[Leave|Barb Street]]>><</link>>", '<<plusDrinkLink "cooler">>'),
+    ("Dance Studio Changing Room", "<<getouticon>><<link [[Leave|Dance Studio]]>>", "<<plusToiletLink>><br>"),
+    ("Wolf Cave Clearing", '<<wolfcaveicon "inside">><<link [[Go inside|Wolf Cave]]>>', '<<plusDrinkLink "stream">><<plusOutdoorToiletLink "wolfcave">><br>'),
+    ("Hallways", "<<scienceicon>><<link [[Science classroom (0:01)|Science Classroom]]>>", '<<plusDrinkLink "fountain">>'),
+    ("School Library", "<<getouticon>><<link [[Leave the library (0:01)|Hallways]]>>", '<<plusDrinkLink "fountain">>'),
+    ("Park", '<<add_link "<br>Alternate routes<br>">>', '<<plusDrinkLink "fountain">><<plusOutdoorToiletLink "park">>'),
+    ("Beach", '<<add_link "Travel<br>">>', '<<plusDrinkLink "shower">><<plusOutdoorToiletLink "beach">><br>'),
+    ("Lake Shore", "<<foresticon>><<link [[Forest (0:10)|Forest]]>>", '<<plusDrinkLink "lake">><<plusOutdoorToiletLink "lake">>'),
+    ("Lake Waterfall", "<<foresticon>><<link [[Forest (0:10)|Forest]]>>", '<<plusDrinkLink "lake">><<plusOutdoorToiletLink "lake">>'),
+    ("Lake Campsite", "<<foresticon>><<link [[Forest (0:10)|Forest]]>>", '<<plusDrinkLink "lake">><<plusOutdoorToiletLink "lake">>'),
+    ("Hospital Foyer", "<<getouticon>><<link [[Go outside (0:01)|Hospital front]]>>", '<<plusDrinkLink "cooler">><<plusToiletLink>><br>'),
+    ("Shopping Centre", '<<stairsicon "up">><<link [[Go upstairs (0:02)|Shopping Centre Top]]>>', '<<plusDrinkLink "fountain">><<plusToiletLink>><br>'),
+    ("Ocean Breeze", "<<clifficon>><<link [[Leave|Cliff Street]]>>", '<<plusDrinkLink "cafe">><<plusToiletLink>><br>'),
+]
+for p, a, c in SPOTS:
+    EDITS.append((p, "before_all" if p == "Shopping Centre" else "before", a, c))
+EDITS.append(("Forest", "before_all", "<<forestlessdeep>>", '<<plusOutdoorToiletLink "forest">><br>'))
 for p in ["Kitchen", "Farm Kitchen"]:
     EDITS.append((p, "before", "<<kitchenDisplay>>", "<<plusKitchenSnack>><br>"))
 for p, (h, t) in FOOD.items():
@@ -91,7 +110,8 @@ def main():
         else:
             a = esc(anchor); k = body.find(a)
             if k < 0: sys.exit("anchor %r not found in %s" % (anchor, name))
-            body = body[:k] + c + body[k:] if mode == "before" else body[:k + len(a)] + c + body[k + len(a):]
+            if mode == "before_all": body = body.replace(a, c + a)
+            else: body = body[:k] + c + body[k:] if mode == "before" else body[:k + len(a)] + c + body[k + len(a):]
         s = s[:m.start(2)] + body + s[m.end(2):]
     # 5. new passages
     pid = max(int(x) for x in re.findall(r'<tw-passagedata pid="(\d+)"', s))

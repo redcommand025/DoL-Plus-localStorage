@@ -68,9 +68,30 @@
 		"solo cup": 350, "beer mug": 500, "beer bottle": 330, "autumn ale": 500, "fruity ale": 500, "winter ale": 500,
 		shandy: 500, cider: 330, "hot cider": 250, "travel cup cider": 300, "red wine": 175, "white wine": 175,
 		champagne: 150, "strawberry cocktail": 200, shot: 30, whisky: 30, brandy: 30, vodka: 30, scotch: 30,
-		coconut: 300, "soup bowl": 250, salad: 0, apple: 0, pear: 0,
+		coconut: 300, fountain: 200, stream: 300, lake: 300, "water cooler": 200, "cafe water": 250, "soup bowl": 250, salad: 0, apple: 0, pear: 0,
 	};
 	window.plusNeedsML = ML;
+
+	/* Chance (0-1) of being spotted when relieving yourself outdoors. Higher near town and in busy places. */
+	const SPOT_BASE = { park: 0.4, beach: 0.35, wolfcave: 0.05 };
+	window.plusNeedsSpotChance = function (spot) {
+		const V = State.variables;
+		let p;
+		if (Number.isFinite(SPOT_BASE[spot])) p = SPOT_BASE[spot];
+		else {
+			// forest / lake: $forest is depth (0 = edge of town, 100+ = deep)
+			const depth = Number.isFinite(V.forest) ? V.forest : 50;
+			p = Math.clamp(0.35 - 0.003 * depth, 0.03, 0.35);
+		}
+		try {
+			if (typeof Time !== "undefined" && Time.dayState === "night") p *= 0.5;
+		} catch (e) {}
+		return Math.round(p * 1000) / 1000;
+	};
+	window.plusNeedsSpotted = function () {
+		const S = stats();
+		S.spotted = (S.spotted || 0) + 1;
+	};
 
 	function clamp(v) {
 		return Math.clamp(v, 0, MAX);
