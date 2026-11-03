@@ -201,3 +201,13 @@ You feel refreshed.
 <<run plusNeedsToilet("both")>>
 <br><br>
 <<getouticon>><<link [[Continue|$plusToiletReturn]]>><<set $eventskip to 1>><</link>>
+
+:: Widgets Plus Needs Notices [widget plusneeds]
+<<widget "plusNeedsNeedNotice">>
+	<<for _pnN range _plusNeedsNoticeList>>
+		<<if _pnN.tier gte 3>><span class="red">_pnN.text</span><<gstress>><<gpain>>
+		<<elseif _pnN.tier is 2>><span class="purple">_pnN.text</span>
+		<<else>><span class="lblue">_pnN.text</span><</if>>
+		<br>
+	<</for>>
+<</widget>>

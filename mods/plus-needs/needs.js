@@ -264,6 +264,86 @@
 			if (State.variables) stats();
 		} catch (e) {}
 	});
+	/* Hunger/thirst flavour notices. Tier 1: <=500, 2: <=200, 3: empty (0, stress/pain penalty active). */
+	const NOTICE_REPEAT = 45 * 60; // seconds of game time before the same tier is mentioned again
+	const NOTICE_LINES = {
+		plusHunger: {
+			1: ["Your stomach gives a low, hollow grumble. You should eat something soon.",
+				"You catch yourself thinking about food. It's been a while since you last ate.",
+				"A faint emptiness gnaws at your stomach.",
+				"Your stomach rumbles loudly enough that you hope no one else heard.",
+				"You feel a little peckish. A proper meal wouldn't go amiss."],
+			2: ["You're starving. Your stomach twists painfully and you can't stop thinking about food.",
+				"Hunger claws at your insides. You need to eat, and soon.",
+				"Your hands feel shaky and your thoughts keep drifting to food. You're starving.",
+				"The smell of anything edible would make your mouth water right now. You're ravenous.",
+				"A dull ache has settled in your empty stomach. You badly need a meal."],
+			3: ["Your stomach cramps with hunger. You feel weak and lightheaded, and every movement takes effort.",
+				"You haven't eaten in far too long. The gnawing pain in your belly makes it hard to think.",
+				"Your legs tremble and your vision swims for a moment. Your body is running on empty.",
+				"Hunger has become a constant, aching pain. You need food now.",
+				"You feel faint from hunger. The emptiness in your stomach has turned into real pain."],
+		},
+		plusThirst: {
+			1: ["Your mouth feels a little dry. You could use a drink.",
+				"You lick your lips and notice how dry they feel.",
+				"A mild thirst nags at you. A glass of water would be nice.",
+				"You swallow and find your throat a bit scratchy. You should drink something."],
+			2: ["You're parched. Your tongue sticks to the roof of your mouth.",
+				"Your throat is dry and raw. You need water, and soon.",
+				"Every swallow scrapes your throat. You're desperately thirsty.",
+				"A dull headache pulses behind your eyes. You're badly dehydrated.",
+				"You can't stop thinking about a cold drink of water. You're parched."],
+			3: ["Your head pounds and your lips are cracked. Your body is crying out for water.",
+				"You feel dizzy and weak from thirst. Your mouth is completely dry.",
+				"Dehydration makes your head throb painfully. You need to drink right now.",
+				"Your throat burns with thirst and your thoughts feel slow and foggy.",
+				"Your vision blurs for a moment. Without water, you won't last much longer like this."],
+		},
+	};
+	function needTier(v) {
+		return v <= 0 ? 3 : v <= 200 ? 2 : v <= 500 ? 1 : 0;
+	}
+	/* Returns [{which, tier, text}] to show now, updating the shown-state. At most one per need per passage. */
+	window.plusNeedsNotices = function () {
+		const V = State.variables;
+		const out = [];
+		V.plusNeedsNotice = V.plusNeedsNotice || {};
+		const now = V.timeStamp || 0;
+		for (const k of ["plusHunger", "plusThirst"]) {
+			const tier = needTier(V[k]);
+			const st = V.plusNeedsNotice[k] || (V.plusNeedsNotice[k] = { tier: 0, ts: -Infinity, last: -1 });
+			if (tier === 0 || tier < st.tier) {
+				st.tier = tier; // recovered: reset silently so a later drop is announced
+				continue;
+			}
+			if (tier === st.tier && now - st.ts < NOTICE_REPEAT) continue;
+			const lines = NOTICE_LINES[k][tier];
+			let i = Math.floor(Math.random() * lines.length);
+			if (i === st.last && lines.length > 1) i = (i + 1 + Math.floor(Math.random() * (lines.length - 1))) % lines.length;
+			Object.assign(st, { tier, ts: now, last: i });
+			out.push({ which: k, tier, text: lines[i] });
+		}
+		return out;
+	};
+	$(document).on(":passagerender", function (ev) {
+		const V = State.variables;
+		if (!V || V.combat === 1 || V.intro || !Number.isFinite(V.plusHunger) || (V.passage || "").startsWith("Plus Needs")) return;
+		try {
+			const list = window.plusNeedsNotices();
+			if (!list.length) return;
+			const div = document.createElement("div");
+			div.className = "plus-needs-hungerthirst";
+			T_set(list);
+			$(div).wiki("<<plusNeedsNeedNotice>><br><br>");
+			ev.content.prepend(div);
+		} catch (e) {
+			console.warn("plusNeedsNotices", e);
+		}
+	});
+	function T_set(list) {
+		State.temporary.plusNeedsNoticeList = list;
+	}
 	// Show an accident notice at the top of the next normal (non-combat) passage.
 	$(document).on(":passagerender", function (ev) {
 		const V = State.variables;
