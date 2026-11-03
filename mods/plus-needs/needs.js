@@ -18,6 +18,10 @@
 	const DRIFT_STEP = 0.03, DRIFT_MIN = 0.8, DRIFT_MAX = 1.2; // slowly drifting per-stat multiplier (per hour)
 	const REFILL_NOISE = 0.22; // +-22% randomness per meal/drink
 	const WEAK_FATIGUE_PER_HOUR = 15; // fatigue added per hour while starving or parched
+	// Stress / pain per hour while starving (hunger 0) or parched (thirst 0); they stack, thirst is a bit harsher.
+	const EMPTY_STRESS_PER_HOUR = { plusHunger: 80, plusThirst: 120 }; // $stress max is 10000; base game recovers ~60/h
+	const EMPTY_PAIN_PER_HOUR = { plusHunger: 20, plusThirst: 26 }; // $pain 0-200; base game heals some over time
+	const EMPTY_PAIN_CAP = { plusHunger: 40, plusThirst: 60 }; // pain from needs alone won't push past this (caps add when both are 0)
 	// A single long time skip (sleep, passing out, hospital) never causes an accident on its own.
 	const LONG_PASS = 180;
 	const LONG_PASS_FLOOR = 200;
@@ -99,6 +103,20 @@
 				if (Number.isFinite(V.tiredness)) {
 					const max = typeof C !== "undefined" && C.tiredness && C.tiredness.max ? C.tiredness.max : 2000;
 					V.tiredness = Math.clamp(V.tiredness + (WEAK_FATIGUE_PER_HOUR * minutes) / 60, 0, max);
+				}
+			} catch (e) {}
+			// Stress and pain each turn, skipped during combat (combat manages its own pain/stress).
+			try {
+				if (V.combat !== 1) {
+					let st = 0, pn = 0, cap = 0;
+					for (const k of ["plusHunger", "plusThirst"]) if (V[k] <= 0) {
+						cap += EMPTY_PAIN_CAP[k];
+						st += (EMPTY_STRESS_PER_HOUR[k] * minutes) / 60;
+						pn += (EMPTY_PAIN_PER_HOUR[k] * minutes) / 60;
+					}
+					const smax = Number.isFinite(V.stressmax) ? V.stressmax : 10000;
+					if (Number.isFinite(V.stress)) V.stress = Math.clamp(V.stress + st, 0, smax);
+					if (Number.isFinite(V.pain) && V.gamemode !== "soft" && V.pain < cap) V.pain = Math.clamp(V.pain + pn, 0, cap);
 				}
 			} catch (e) {}
 		}

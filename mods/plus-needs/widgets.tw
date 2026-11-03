@@ -32,6 +32,12 @@
 	<<if $plusHunger lte 0 or $plusThirst lte 0>>
 		<span class="red">You feel weak.</span>
 	<</if>>
+	<<if $plusHunger lte 0>>
+		<span class="red">Your stomach aches with hunger.</span>
+	<</if>>
+	<<if $plusThirst lte 0>>
+		<span class="red">Your head pounds from thirst.</span>
+	<</if>>
 <</widget>>
 
 /* Link shown in bathrooms and toilets. */
