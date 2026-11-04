@@ -16675,7 +16675,7 @@ window.plusNowTs = function () {
 	window.plusNeedsInit = init;
 
 	/* Lifetime statistics shown on the Statistics page ("Needs" foldout). */
-	const STAT_KEYS = ["mlTotal", "drinks", "meals", "snacks", "kcal", "pees", "poops", "accWet", "accSoiled", "accBoth", "zeroHunger", "zeroThirst", "mlToday", "smelt", "laundromat", "accFloor", "accSpotted", "findPlace", "findPlaceSpotted"];
+	const STAT_KEYS = ["mlTotal", "drinks", "meals", "snacks", "kcal", "pees", "poops", "accWet", "accSoiled", "accBoth", "zeroHunger", "zeroThirst", "mlToday", "smelt", "laundromat", "accFloor", "accSpotted", "findPlace", "findPlaceSpotted", "mlAbsorbed", "lbAbsorbed"];
 	function stats() {
 		const V = State.variables;
 		if (!V.plusNeedsStats || typeof V.plusNeedsStats !== "object") V.plusNeedsStats = {};
@@ -17212,14 +17212,16 @@ window.plusNowTs = function () {
 		window.plusClothesDirt(DIRT_RATE * minutes);
 	};
 	/* Bowel accident: soil the underwear; a full (10) pair overflows into the lower item unless it's a skirt/dress. */
-	window.plusClothesAccident = function (which) {
+	window.plusClothesAccident = function (which, frac) {
 		const V = State.variables;
+		const f = Number.isFinite(frac) ? Math.clamp(frac, 0, 1) : 1;
 		if (!V.worn || (which !== "plusBowels" && which !== "both")) return;
 		const ul = V.worn.under_lower, lo = V.worn.lower;
 		const loOk = realItem(lo) && !isSkirt(lo);
-		if (realItem(ul) && window.plusDiaperPoopFull(ul)) {
-			addItem(ul, ACC.overflowDirt, 0); // a full diaper leaks: the mess goes on to the next layer
-			if (loOk) addItem(lo, ACC.dirt, ACC.soil);
+		if (realItem(ul) && window.plusDiaperDef(ul)) {
+			// a full diaper leaks: the overflow portion of the mess goes on to the next layer
+			addItem(ul, Math.round(ACC.overflowDirt * f), 0);
+			if (loOk) addItem(lo, Math.round(ACC.dirt * f), Math.max(1, Math.round(ACC.soil * f)));
 		} else if (realItem(ul)) {
 			addItem(ul, ACC.dirt, ACC.soil);
 			if (ul.plusSoiled >= SOIL_MAX && loOk) addItem(lo, ACC.overflowDirt, ACC.overflowSoil);
@@ -17265,16 +17267,20 @@ window.plusNowTs = function () {
 		}
 		return 0;
 	};
-	/* Smell: 2% per soiled point on clothes (cap 40%) plus 8% per poop held in a worn diaper;
-	 * with 3+ poops in the diaper the cap rises to 60%. */
-	const SMELL_PER_POOP = 0.08, SMELL_CAP_DIAPER = 0.6;
+	/* Smell: 2% per soiled point on clothes (cap 40%) plus 16% per lb of solids held in a worn diaper;
+	 * any mess in the diaper raises the cap to 60%. Under 0.75 lb in the diaper it's only a faint whiff. */
+	const SMELL_PER_LB = 0.16, SMELL_CAP_DIAPER = 0.6, SMELL_FAINT_LB = 0.75;
 	window.plusSmellChance = function () {
-		const poops = window.plusDiaperPoops ? window.plusDiaperPoops() : 0;
-		const cap = poops >= 3 ? SMELL_CAP_DIAPER : SMELL_CAP;
-		return Math.min(cap, SMELL_PER_SOIL * window.plusClothesSoiled() + SMELL_PER_POOP * poops);
+		const lb = window.plusDiaperPoops ? window.plusDiaperPoops() : 0;
+		const cap = lb > 0 ? SMELL_CAP_DIAPER : SMELL_CAP;
+		return Math.min(cap, SMELL_PER_SOIL * window.plusClothesSoiled() + SMELL_PER_LB * lb);
 	};
-	/* 1 = faint whiff (chance under 16%), 2 = unmistakable. */
-	window.plusSmellIntensity = () => (window.plusSmellChance() >= 0.16 ? 2 : 1);
+	/* 1 = faint whiff, 2 = unmistakable (chance 16%+ from soiled clothes, or 0.75 lb+ in the diaper). */
+	window.plusSmellIntensity = function () {
+		const lb = window.plusDiaperPoops ? window.plusDiaperPoops() : 0;
+		if (lb > 0 && window.plusClothesSoiled() === 0) return lb >= SMELL_FAINT_LB ? 2 : 1;
+		return window.plusSmellChance() >= 0.16 ? 2 : 1;
+	};
 	window.plusIsPublic = function (title) {
 		const V = State.variables;
 		return V.combat !== 1 && !PRIVATE_LOC.includes(V.location) && !PRIVATE_PASS.test(title || "");
@@ -17326,7 +17332,7 @@ window.plusNowTs = function () {
 		if (s >= 8) out.push(["red", "Your soiled clothes reek. People can smell you."]);
 		else if (s > 0) out.push(["purple", "Your clothes are soiled and smell unpleasant."]);
 		const dp = window.plusDiaperPoops ? window.plusDiaperPoops() : 0;
-		if (dp >= 2) out.push(["red", "Your messy diaper smells. People nearby can probably tell."]);
+		if (dp >= 0.75) out.push(["red", "Your messy diaper smells. People nearby can probably tell."]);
 		else if (dp > 0) out.push(["purple", "There's a faint smell from your used diaper."]);
 		return out;
 	};
@@ -17340,7 +17346,7 @@ window.plusNowTs = function () {
 		const s = (it && it.plusSoiled) || 0;
 		return s >= 5 ? "heavily soiled" : s > 0 ? "soiled" : "";
 	};
-	const WORD_COLOUR = { damp: "teal", wet: "purple", soaked: "red", messy: "purple", "very messy": "red", grubby: "teal", dirty: "purple", filthy: "red", soiled: "purple", "heavily soiled": "red" };
+	const WORD_COLOUR = { damp: "teal", wet: "purple", soaked: "red", messy: "purple", "very messy": "red", full: "red", "full of mess": "red", grubby: "teal", dirty: "purple", filthy: "red", soiled: "purple", "heavily soiled": "red" };
 	window.plusDirtWord = function (it) {
 		if (!realItem(it)) return "";
 		let out = "";
@@ -17356,6 +17362,7 @@ window.plusNowTs = function () {
 			const dl = it.plusDirt >= 1500 ? "filthy" : it.plusDirt >= 1000 ? "dirty" : it.plusDirt >= 500 ? "a little grubby" : "clean";
 			out.push(`Your ${it.name} ${it.plural ? "are" : "is"} ${dl}${it.plusSoiled > 0 ? " and soiled" : ""}.`);
 			const dw = window.plusDiaperWords(it);
+			if (window.plusDiaperDef(it)) out.push(`Your ${it.name}: ${window.plusDiaperMeterText(it)}.`);
 			if (dw.length) out.push(`Your ${it.name} is ${dw.join(" and ")}${window.plusDiaperDef(it).cloth ? " and needs washing" : " and needs changing"}.`);
 		}
 		return out;
@@ -17585,108 +17592,215 @@ window.plusNowTs = function () {
 	};
 })();
 
-/* ---- Diapers (under_lower clothing). Fill is counted in units: wet = 1, soiled = 1, both = 2.
- * While a diaper has room the accident is absorbed (no wetness or soiling reaches other clothes, spotting x0.5);
- * once full, accidents leak through the normal logic. Disposables are thrown away; cloth ones must be washed. ---- */
+/* ---- Diapers (under_lower clothing), v2: continuous meters.
+ * Each item carries plusMl / plusLb (what it holds) and plusCapMl / plusCapLb (its capacity, rolled once per item
+ * instance within the model's range, the first time the item is seen). A pee accident is ~400 ml and a poop ~0.5 lb
+ * (each +-15%). What fits is absorbed; the overflow fraction leaks through the normal wetness/soiling rules, scaled.
+ * Disposables are thrown away; cloth ones are washed to reset. Single-use pull-ups are spent after their first use.
+ * Prices (pence): plastic-backed Small 500 .. Hyper 6000; pull-ups 400 .. 1800; cloth 1200 .. 3000 (reusable, so dearer
+ * up front). Price rises with capacity within each category. ---- */
 (function () {
 	"use strict";
-	const DIAPERS = [
-		// name, variable, cost (pence), pee capacity, poop capacity, cloth, description
-		["plastic diaper (large)", "plusdiaperlarge", 3000, 6, 3, false, "Thick and bulky, with a crinkly plastic backing. Holds a lot."],
-		["plastic diaper", "plusdiaper", 2000, 4, 2, false, "A disposable diaper with a crinkly plastic backing."],
-		["plastic diaper (small)", "plusdiapersmall", 1000, 2, 1, false, "A slim disposable diaper. It won't hold much."],
-		["cloth diaper", "plusclothdiaper", 2000, 2, 1, true, "Soft, washable cloth. Reusable, but it needs a wash after use."],
-		["pull-up", "pluspullup", 1000, 4, 2, false, "Disposable underwear that pulls up and down like normal pants."],
+	const PEE_ML = 400, POOP_LB = 0.5, VAR = 0.15;
+	// category, size, variable, ml [min,max], lb [min,max], avg use, cost (pence), sprite folder, icon
+	const P = "plastic-backed diaper", C = "cloth diaper", U = "pull-up";
+	const MODELS = [
+		[P, "Hyper", "plusdphyper", [12000, 12000], [8, 10], "3–4 days", 6000, "diaper-large.png"],
+		[P, "Max", "plusdpmax", [7500, 7500], [5, 6], "1–2 days", 4000, "diaper-large.png"],
+		[P, "Ultra", "plusdpultra", [5000, 5000], [3.5, 4], "1 day", 2800, "diaper-large.png"],
+		[P, "Extra Large", "plusdpxl", [3500, 3500], [2.5, 3], "12–24 hours", 1800, "diaper-large.png"],
+		[P, "Large", "plusdpl", [2500, 2500], [2, 2], "8–12 hours", 1300, "diaper-large.png"],
+		[P, "Medium", "plusdpm", [1800, 1800], [1.5, 1.5], "6–10 hours", 900, "diaper.png"],
+		[P, "Small", "plusdps", [1000, 1000], [1, 1], "4–8 hours", 500, "diaper-small.png"],
+		[C, "Extra Large", "pluscdxl", [2000, 2000], [1.5, 2], "6–12 hours (until capacity or comfort fails)", 3000, "cloth-diaper.png"],
+		[C, "Large", "pluscdl", [1500, 1500], [1, 1.5], "4–8 hours (until capacity or comfort fails)", 2400, "cloth-diaper.png"],
+		[C, "Medium", "pluscdm", [1000, 1000], [0.75, 1], "3–6 hours (until capacity or comfort fails)", 1800, "cloth-diaper.png"],
+		[C, "Small", "pluscds", [600, 600], [0.5, 0.5], "2–4 hours (until capacity or comfort fails)", 1200, "cloth-diaper.png"],
+		[U, "Large", "pluspul", [2200, 2200], [1.5, 1.5], "8–12 hours", 1800, "pull-up.png"],
+		[U, "Medium", "pluspum", [1600, 1600], [1, 1], "6–10 hours", 1200, "pull-up.png"],
+		[U, "Small", "pluspus", [1000, 1000], [0.75, 0.75], "4–8 hours", 800, "pull-up.png"],
+		[U, "Extra Small", "pluspuxs", [400, 500], [0.3, 0.5], "2–4 hours (or until first significant use saturates it)", 400, "pull-up.png"],
 	];
+	const BLURB = { [P]: "A disposable diaper with a crinkly plastic backing.", [C]: "Soft, washable cloth. Reusable: wash it to reset it.", [U]: "Disposable underwear that pulls up and down like normal pants." };
 	const DEF = {};
-	for (const [name, variable, cost, pee, poop, cloth, desc] of DIAPERS) DEF[name] = { name, variable, cost, pee, poop, cap: pee + poop, cloth, desc };
+	const fmtR = (r, u) => (r[0] === r[1] ? `${r[0]}` : `${r[0]}–${r[1]}`) + u;
+	for (const [cat, size, variable, ml, lb, use, cost, icon] of MODELS) {
+		const single = size === "Extra Small";
+		const name = `${cat} (${size})`;
+		const desc = `${BLURB[cat]}${single ? " Single use." : ""} Avg. Use: ${use}. Holds ${fmtR(ml, " ml")} and ${fmtR(lb, " lb")}.`;
+		DEF[name] = { name, cat, size, variable, ml, lb, use, cost, icon: "plusneeds/" + icon, cloth: cat === C, single, desc };
+	}
 	window.plusDiaperDefs = DEF;
-	const ICONS = { plusdiaperlarge: "plusneeds/diaper-large.png", plusdiaper: "plusneeds/diaper.png", plusdiapersmall: "plusneeds/diaper-small.png", plusclothdiaper: "plusneeds/cloth-diaper.png", pluspullup: "plusneeds/pull-up.png" };
+	// v1 saves -> nearest v2 model (wet/soil counts convert at 400 ml / 0.5 lb each)
+	const OLD = { "plastic diaper (large)": "plastic-backed diaper (Extra Large)", "plastic diaper": "plastic-backed diaper (Medium)", "plastic diaper (small)": "plastic-backed diaper (Small)", "cloth diaper": "cloth diaper (Small)", "pull-up": "pull-up (Medium)" };
+	window.plusDiaperOldMap = OLD;
 	window.plusDiaperItems = function () {
-		return DIAPERS.map(([name, variable, cost, pee, poop, cloth, desc]) => new ClothesItem({
-			index: 0, slot: "under_lower", name, name_cap: name[0].toUpperCase() + name.slice(1),
-			name_simple: name === "pull-up" ? "pull-up" : "diaper", variable,
+		return Object.values(DEF).map(d => new ClothesItem({
+			index: 0, slot: "under_lower", name: d.name, name_cap: d.name[0].toUpperCase() + d.name.slice(1),
+			name_simple: d.cat === U ? "pull-up" : "diaper", variable: d.variable,
 			combat: { reference: "plainpanties", accessory: false },
 			integrity: 100, integrity_max: 100, fabric_strength: 15, reveal: 400, rearresize: 0, word: "a",
 			one_piece: 0, state: "waist", state_base: "waist", plural: 0,
 			colour: 0, colour_options: ["pale white"], colour_sidebar: 0,
 			exposed: 0, exposed_base: 0, vagina_exposed: 0, vagina_exposed_base: 0, anus_exposed: 0, anus_exposed_base: 0,
 			type: ["normal", "antitransparent"], anal_shield: 0, set: "under_lower", gender: "n", femininity: 0,
-			warmth: 2, cost, description: desc, shop: ["clothing"],
+			warmth: 2, cost: d.cost, description: d.desc, shop: ["clothing"],
 			accessory: 0, accessory_colour: 0, accessory_colour_options: [], penis_img: 1, high_img: 0,
-			cursed: 0, location: 0, iconFile: ICONS[variable], accIcon: 0, modder: "plusneeds",
+			cursed: 0, location: 0, iconFile: d.icon, accIcon: 0, modder: "plusneeds",
 		}));
 	};
-	const def = it => (it && Array.isArray(it.type) && !it.type.includes("naked") && DEF[it.name]) || null;
-	/* Two meters per item: plusDiaperWet (pees) and plusDiaperSoil (poops). plusDiaperFill = their sum, kept for display/compat.
-	 * Old saves (single fill, capacity 1-3 units) already stored the wet/soil counts; they are clamped to the new capacities. */
+	const roll = r => (r[0] === r[1] ? r[0] : r[0] + Math.random() * (r[1] - r[0]));
+	const r2 = x => Math.round(x * 100) / 100;
+	function migrate(it) {
+		const nn = OLD[it.name];
+		if (!nn || !it.type || it.type.includes("naked")) return false;
+		const tpl = setup.clothes.under_lower.find(c => c.name === nn);
+		if (!tpl) return false;
+		for (const k of ["name", "name_cap", "name_simple", "variable", "index", "iconFile", "cost", "description"]) it[k] = tpl[k];
+		const w = Number(it.plusDiaperWet) || 0, p = Number(it.plusDiaperSoil) || 0;
+		delete it.plusCapMl;
+		delete it.plusCapLb;
+		it.plusMl = w * PEE_ML;
+		it.plusLb = p * POOP_LB;
+		delete it.plusDiaperWet;
+		delete it.plusDiaperSoil;
+		return true;
+	}
+	const def = it => {
+		if (!it || !Array.isArray(it.type) || it.type.includes("naked")) return null;
+		if (OLD[it.name] && typeof setup !== "undefined" && setup.clothes) migrate(it);
+		return DEF[it.name] || null;
+	};
 	function init(it) {
 		const d = def(it);
-		if (!Number.isFinite(it.plusDiaperWet)) it.plusDiaperWet = 0;
-		if (!Number.isFinite(it.plusDiaperSoil)) it.plusDiaperSoil = 0;
-		if (d) {
-			// v1 saves: wet/soil were already counted separately ("both" bumped each once), so only clamping is needed.
-			it.plusDiaperWet = Math.clamp(it.plusDiaperWet, 0, d.pee);
-			it.plusDiaperSoil = Math.clamp(it.plusDiaperSoil, 0, d.poop);
-		}
-		it.plusDiaperFill = it.plusDiaperWet + it.plusDiaperSoil;
+		if (!d) return it;
+		if (!it.colour) it.colour = "pale white";
+		if (!Number.isFinite(it.plusCapMl)) it.plusCapMl = Math.round(roll(d.ml));
+		if (!Number.isFinite(it.plusCapLb)) it.plusCapLb = r2(roll(d.lb));
+		if (!Number.isFinite(it.plusMl)) it.plusMl = 0;
+		if (!Number.isFinite(it.plusLb)) it.plusLb = 0;
+		it.plusMl = Math.clamp(it.plusMl, 0, it.plusCapMl);
+		it.plusLb = Math.clamp(it.plusLb, 0, it.plusCapLb);
+		it.plusDiaperFill = it.plusMl + it.plusLb; // truthy when used (display/compat)
 		return it;
 	}
+	window.plusDiaperInit = init;
+	/* One pass over the save on load: migrate every old diaper anywhere in the state (worn, wardrobes, carried, ...). */
+	window.plusDiaperMigrateAll = function () {
+		const V = State.variables;
+		if (!V || V.plusDiaperV2) return 0;
+		let n = 0;
+		const seen = new Set();
+		(function walk(o, depth) {
+			if (!o || typeof o !== "object" || seen.has(o) || depth > 8) return;
+			seen.add(o);
+			if (typeof o.name === "string" && OLD[o.name] && Array.isArray(o.type)) {
+				if (migrate(o)) {
+					init(o);
+					n++;
+				}
+				return;
+			}
+			for (const k of Object.keys(o)) walk(o[k], depth + 1);
+		})(V, 0);
+		V.plusDiaperV2 = 1;
+		return n;
+	};
+	$(document).on(":passagestart", () => {
+		try {
+			if (State.variables && State.variables.worn) window.plusDiaperMigrateAll();
+		} catch (e) {
+			console.warn("plusDiaperMigrate", e);
+		}
+	});
 	window.plusDiaperDef = def;
-	window.plusDiaperCap = it => (def(it) ? def(it).cap : 0);
 	window.plusDiaperWorn = function () {
 		const W = State.variables.worn, it = W && W.under_lower;
 		return def(it) ? init(it) : null;
 	};
-	window.plusDiaperPeeFull = it => !!def(it) && init(it).plusDiaperWet >= def(it).pee;
-	window.plusDiaperPoopFull = it => !!def(it) && init(it).plusDiaperSoil >= def(it).poop;
+	const spent = it => def(it).single && it.plusSpent;
+	window.plusDiaperPeeFull = it => !!def(it) && (init(it).plusMl >= it.plusCapMl || spent(it));
+	window.plusDiaperPoopFull = it => !!def(it) && (init(it).plusLb >= it.plusCapLb || spent(it));
 	window.plusDiaperFull = it => window.plusDiaperPeeFull(it) && window.plusDiaperPoopFull(it);
-	/* Called once per accident notice. Returns the part that leaks: "", "plusBladder", "plusBowels" or "both". */
-	window.plusDiaperAbsorb = function (which) {
+	window.plusPeeAmount = () => Math.round(PEE_ML * (1 - VAR + Math.random() * 2 * VAR));
+	window.plusPoopAmount = () => r2(POOP_LB * (1 - VAR + Math.random() * 2 * VAR));
+	/* Called once per accident notice. Returns the part that leaks: "", "plusBladder", "plusBowels" or "both".
+	 * The leaking fractions (0-1) are left in State.temporary.plusLeakPee / plusLeakPoop / plusLeakFrac (the largest). */
+	window.plusDiaperAbsorb = function (which, peeMl, poopLb) {
+		const T = State.temporary, V = State.variables;
+		T.plusLeakPee = T.plusLeakPoop = T.plusLeakFrac = 0;
 		const it = window.plusDiaperWorn();
-		if (!it) return which;
-		const d = def(it);
-		let leakWet = false, leakSoil = false;
+		if (!it) {
+			T.plusLeakPee = which !== "plusBowels" ? 1 : 0;
+			T.plusLeakPoop = which !== "plusBladder" ? 1 : 0;
+			T.plusLeakFrac = 1;
+			return which;
+		}
+		const d = def(it), S = V.plusNeedsStats || (V.plusNeedsStats = {});
+		const wasSpent = spent(it);
 		if (which !== "plusBowels") {
-			if (it.plusDiaperWet < d.pee) it.plusDiaperWet++;
-			else leakWet = true;
+			const amt = Number.isFinite(peeMl) ? peeMl : window.plusPeeAmount();
+			const room = wasSpent ? 0 : Math.max(0, it.plusCapMl - it.plusMl);
+			const took = Math.min(amt, room);
+			it.plusMl += took;
+			S.mlAbsorbed = (S.mlAbsorbed || 0) + took;
+			T.plusLeakPee = amt > 0 ? (amt - took) / amt : 0;
+			if (took > 0) it.plusDirt = Math.min(2000, (it.plusDirt || 0) + 100);
 		}
 		if (which !== "plusBladder") {
-			if (it.plusDiaperSoil < d.poop) {
-				it.plusDiaperSoil++;
-				it.plusDirt = Math.min(2000, (it.plusDirt || 0) + 250);
-			} else leakSoil = true;
+			const amt = Number.isFinite(poopLb) ? poopLb : window.plusPoopAmount();
+			const room = wasSpent ? 0 : Math.max(0, it.plusCapLb - it.plusLb);
+			const took = Math.min(amt, room);
+			it.plusLb = r2(it.plusLb + took);
+			S.lbAbsorbed = r2((S.lbAbsorbed || 0) + took);
+			T.plusLeakPoop = amt > 0 ? (amt - took) / amt : 0;
+			if (took > 0) it.plusDirt = Math.min(2000, (it.plusDirt || 0) + 250);
 		}
-		if (which !== "plusBowels" && !leakWet) it.plusDirt = Math.min(2000, (it.plusDirt || 0) + 100);
+		if (d.single) it.plusSpent = true; // first significant use saturates a single-use pull-up
 		init(it);
-		return leakWet && leakSoil ? "both" : leakWet ? "plusBladder" : leakSoil ? "plusBowels" : "";
+		const lw = T.plusLeakPee > 0.001, ls = T.plusLeakPoop > 0.001;
+		T.plusLeakFrac = Math.max(lw ? T.plusLeakPee : 0, ls ? T.plusLeakPoop : 0);
+		return lw && ls ? "both" : lw ? "plusBladder" : ls ? "plusBowels" : "";
 	};
+	/* Solids held in the worn diaper, in lb (smell scales with this). */
 	window.plusDiaperPoops = function () {
 		const it = window.plusDiaperWorn();
-		return it ? it.plusDiaperSoil : 0;
+		return it ? it.plusLb : 0;
 	};
 	window.plusDiaperReset = function (it) {
 		if (!def(it)) return;
-		it.plusDiaperFill = it.plusDiaperWet = it.plusDiaperSoil = 0;
+		init(it);
+		it.plusMl = it.plusLb = it.plusDiaperFill = 0;
+		delete it.plusSpent;
 	};
-	/* Sidebar words: pee damp / wet / soaked (full), poop messy / very messy (full). */
+	/* Sidebar words. Pee by fill %: damp >0, wet >40%, soaked >75%, full 100%. Poop: messy >0, very messy >60%, full. */
 	window.plusDiaperWords = function (it) {
 		const d = def(it);
 		if (!d) return [];
 		init(it);
-		const out = [], w = it.plusDiaperWet, p = it.plusDiaperSoil;
-		if (w >= d.pee) out.push("soaked");
-		else if (w > d.pee / 2) out.push("wet");
+		const out = [], w = it.plusMl / it.plusCapMl, p = it.plusLb / it.plusCapLb;
+		const pf = w >= 1 || (spent(it) && it.plusMl > 0), sf = p >= 1 || (spent(it) && it.plusLb > 0);
+		if (pf && sf) return ["full"];
+		if (pf) out.push("full");
+		else if (w > 0.75) out.push("soaked");
+		else if (w > 0.4) out.push("wet");
 		else if (w > 0) out.push("damp");
-		if (p >= d.poop) out.push("very messy");
+		if (sf) out.push(pf ? "" : "full of mess");
+		else if (p > 0.6) out.push("very messy");
 		else if (p > 0) out.push("messy");
-		return out;
+		return out.filter(Boolean);
 	};
 	window.plusDiaperKeyword = it => window.plusDiaperWords(it).join(" ");
+	const fmtLb = x => String(r2(x));
+	window.plusDiaperMeterText = function (it) {
+		if (!def(it)) return "";
+		init(it);
+		return `${Math.round(it.plusMl)}/${it.plusCapMl} ml, ${fmtLb(it.plusLb)}/${fmtLb(it.plusCapLb)} lb`;
+	};
 	/* "Change" option: a used disposable is thrown away. */
 	window.plusDiaperCanDispose = function () {
 		const it = window.plusDiaperWorn();
-		return !!it && !def(it).cloth && it.plusDiaperFill > 0;
+		return !!it && !def(it).cloth && (it.plusMl > 0 || it.plusLb > 0 || !!it.plusSpent);
 	};
 	/* "Incontinent" background: Leaky continence, a pull-up worn instead of underwear and 5 spares in the wardrobe. */
 	window.plusIncontinentStart = function () {
@@ -17694,11 +17808,11 @@ window.plusNowTs = function () {
 		if (!V.background || V.background.incontinent !== true) return false;
 		V.plusContinence = 0;
 		V.plusContinenceXP = 0;
-		const idx = setup.clothes.under_lower.findIndex(c => c.variable === "pluspullup");
+		const idx = setup.clothes.under_lower.findIndex(c => c.name === "pull-up (Medium)");
 		if (idx < 0) return false;
 		const fresh = () => {
 			const it = JSON.parse(JSON.stringify(setup.clothes.under_lower[idx]));
-			it.plusDiaperFill = it.plusDiaperWet = it.plusDiaperSoil = 0;
+			window.plusDiaperInit(it);
 			it.colour = (it.colour_options && it.colour_options[0]) || it.colour; // "pale white", as the shop sets it
 			return it;
 		};
@@ -974060,7 +974174,8 @@ Jordan materialises from the background radiation of the universe.
 	&lt;&lt;stress 6&gt;&gt;&lt;&lt;gstress&gt;&gt;&lt;&lt;set $hygiene to Math.clamp($hygiene + 200, 0, 2000)&gt;&gt;
 	&lt;&lt;set _pnSeen to plusAccidentSpotRoll(false, 0.5)&gt;&gt;
 	&lt;&lt;else&gt;&gt;
-	&lt;&lt;if _pnDiaper&gt;&gt;&lt;span class=&quot;red&quot;&gt;Your _pnDiaper.name &lt;&lt;if _pnLeak is &quot;plusBladder&quot;&gt;&gt;is already soaked and can&#39;t hold any more pee&lt;&lt;elseif _pnLeak is &quot;plusBowels&quot;&gt;&gt;is already full and can&#39;t hold any more mess&lt;&lt;else&gt;&gt;is already full and can&#39;t hold any more&lt;&lt;/if&gt;&gt;. It leaks&lt;&lt;if _pnLeak isnot _pnWhich&gt;&gt;, though it holds the rest&lt;&lt;/if&gt;&gt;.&lt;/span&gt;&lt;br&gt;&lt;&lt;set _pnWhich to _pnLeak&gt;&gt;&lt;&lt;/if&gt;&gt;
+	&lt;&lt;if _pnDiaper&gt;&gt;&lt;span class=&quot;red&quot;&gt;Your _pnDiaper.name &lt;&lt;if _pnLeak is &quot;plusBladder&quot;&gt;&gt;can&#39;t hold any more pee&lt;&lt;elseif _pnLeak is &quot;plusBowels&quot;&gt;&gt;can&#39;t hold any more mess&lt;&lt;else&gt;&gt;can&#39;t hold any more&lt;&lt;/if&gt;&gt;. It leaks&lt;&lt;if _pnLeak isnot _pnWhich or _plusLeakFrac lt 0.999&gt;&gt;, though it holds &lt;&lt;if _plusLeakFrac lt 0.5&gt;&gt;most of it&lt;&lt;else&gt;&gt;some of it&lt;&lt;/if&gt;&gt;&lt;&lt;/if&gt;&gt;.&lt;/span&gt;&lt;br&gt;&lt;&lt;set _pnWhich to _pnLeak&gt;&gt;&lt;&lt;/if&gt;&gt;
+	&lt;&lt;set _pnFrac to (_pnDiaper ? _plusLeakFrac : 1)&gt;&gt;&lt;&lt;set _pnPeeFrac to (_pnDiaper ? _plusLeakPee : 1)&gt;&gt;&lt;&lt;set _pnPoopFrac to (_pnDiaper ? _plusLeakPoop : 1)&gt;&gt;
 	&lt;span class=&quot;pink&quot;&gt;
 	&lt;&lt;if _pnFloor&gt;&gt;
 		You couldn&#39;t hold it any longer and didn&#39;t make it to a toilet in time. With nothing on to catch it,
@@ -974080,12 +974195,13 @@ Jordan materialises from the background radiation of the universe.
 	&lt;&lt;if !_pnFloor&gt;&gt;
 		/* Wet the clothing via the base game&#39;s own wetness ($underlowerwet / $lowerwet, 0-200; &lt;&lt;effects&gt;&gt; updates the stages and drying). */
 		&lt;&lt;if _pnWhich is &quot;plusBladder&quot;&gt;&gt;&lt;&lt;set _pnUL to 180&gt;&gt;&lt;&lt;set _pnL to 40&gt;&gt;&lt;&lt;elseif _pnWhich is &quot;plusBowels&quot;&gt;&gt;&lt;&lt;set _pnUL to 160&gt;&gt;&lt;&lt;set _pnL to 30&gt;&gt;&lt;&lt;else&gt;&gt;&lt;&lt;set _pnUL to 200&gt;&gt;&lt;&lt;set _pnL to 50&gt;&gt;&lt;&lt;/if&gt;&gt;
+		&lt;&lt;if _pnPeeFrac lt 1 and _pnWhich isnot &quot;plusBowels&quot;&gt;&gt;&lt;&lt;set _pnUL to Math.round(_pnUL * _pnPeeFrac)&gt;&gt;&lt;&lt;set _pnL to Math.round(_pnL * _pnPeeFrac)&gt;&gt;&lt;&lt;/if&gt;&gt;
 		&lt;&lt;set _pnULwet to !$worn.under_lower.type.includes(&quot;naked&quot;) and !waterproofCheck($worn.under_lower)&gt;&gt;
 		&lt;&lt;set _pnLwet to !$worn.lower.type.includes(&quot;naked&quot;) and !waterproofCheck($worn.lower)&gt;&gt;
 		/* Accident wetness on under_lower is capped at 95 so it stays below the &quot;soaked through&quot; (100) stage. */
 		&lt;&lt;if _pnULwet&gt;&gt;&lt;&lt;set _pnUL to Math.max(0, Math.min(_pnUL, 95 - $underlowerwet))&gt;&gt;&lt;&lt;underlowerwet _pnUL&gt;&gt;&lt;&lt;/if&gt;&gt;
 		&lt;&lt;if _pnLwet&gt;&gt;&lt;&lt;lowerwet _pnL&gt;&gt;&lt;&lt;/if&gt;&gt;
-		&lt;&lt;run plusClothesAccident(_pnWhich)&gt;&gt;
+		&lt;&lt;run plusClothesAccident(_pnWhich, _pnPoopFrac)&gt;&gt;
 		&lt;&lt;if _pnULwet&gt;&gt;Your $worn.under_lower.name &lt;&lt;underlowerplural&gt;&gt; soaked&lt;&lt;if _pnLwet&gt;&gt;, and a damp patch is spreading on your $worn.lower.name&lt;&lt;/if&gt;&gt;.
 		&lt;&lt;elseif _pnLwet&gt;&gt;A damp patch spreads on your $worn.lower.name.
 		&lt;&lt;/if&gt;&gt;
@@ -974169,6 +974285,8 @@ You grab a quick snack and a glass of water.
 		Times you were starving (hunger hit 0): _pns.zeroHunger
 		&lt;br&gt;
 		Times you were parched (thirst hit 0): _pns.zeroThirst
+		&lt;br&gt;
+		Absorbed by diapers: &lt;&lt;print (_pns.mlAbsorbed or 0).toLocaleString()&gt;&gt; ml, &lt;&lt;print Math.round((_pns.lbAbsorbed or 0) * 100) / 100&gt;&gt; lb
 		&lt;br&gt;
 		Times people smelt your soiled clothes: _pns.smelt
 		&lt;br&gt;
