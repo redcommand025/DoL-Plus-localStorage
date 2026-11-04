@@ -1213,6 +1213,46 @@ window.plusNowTs = function () {
 			mlText: `${Math.round(it.plusMl)}/${it.plusCapMl} ml`, lbText: `${fmtLb(it.plusLb)}/${fmtLb(it.plusCapLb)} lb`,
 		};
 	};
+	/* Wardrobe label: "(ml/capml) (lb/caplb)" for any mod diaper item, "" otherwise. */
+	window.plusDiaperFillLabel = function (it) {
+		if (!it || !def(it)) return "";
+		init(it);
+		return ` <span class="plusdiaperfill lblue">(${Math.round(it.plusMl)}/${it.plusCapMl}ml) (${fmtLb(it.plusLb)}/${fmtLb(it.plusCapLb)}lb)</span>`;
+	};
+	/* How loaded a diaper is: mean fill fraction of ml+lb, tie-broken by absolute amount. */
+	const loadScore = it => { init(it); return [(Math.min(1, it.plusMl / (it.plusCapMl || 1)) + Math.min(1, it.plusLb / (it.plusCapLb || 1))) / 2, it.plusMl + it.plusLb * 1000]; };
+	const moreLoaded = (a, b) => { const x = loadScore(a), y = loadScore(b); return x[0] > y[0] + 1e-9 || (Math.abs(x[0] - y[0]) <= 1e-9 && x[1] > y[1]); };
+	/* Swap the worn diaper for the most loaded wardrobe copy of the same diaper (the worn one goes back into that wardrobe slot untouched). */
+	window.plusEquipMostLoaded = function (wardrobe) {
+		const V = State.variables, w = V.worn.under_lower;
+		if (!w || !def(w)) return false;
+		const list = (wardrobe || (typeof selectWardrobe === "function" ? selectWardrobe() : V.wardrobe)).under_lower || [];
+		let best = -1;
+		list.forEach((c, i) => { if (c && c.name === w.name && def(c) && moreLoaded(c, best < 0 ? w : list[best])) best = i; });
+		if (best < 0) return false;
+		const pick = list[best];
+		list[best] = w;
+		V.worn.under_lower = pick;
+		return true;
+	};
+	/* Outfit hook: keep an already-worn diaper of the outfit's type, otherwise put on the most loaded copy. */
+	window.plusOutfitPre = function () {
+		const V = State.variables, o = V.outfit && V.outfit[V.wear_outfit];
+		window.plusOutfitKeep = null;
+		if (!o || !o.under_lower || !def(V.worn.under_lower) || o.under_lower !== V.worn.under_lower.name) return null;
+		const keep = { idx: V.wear_outfit, name: o.under_lower };
+		delete o.under_lower; // skip the slot: the matching diaper is already on
+		window.plusOutfitKeep = keep;
+		return keep;
+	};
+	window.plusOutfitPost = function () {
+		const keep = window.plusOutfitKeep, V = State.variables;
+		window.plusOutfitKeep = null;
+		if (keep) { const o = V.outfit && V.outfit[keep.idx]; if (o && o.under_lower === undefined) o.under_lower = keep.name; return; }
+		// only when an outfit actually put this diaper on (the widget also runs with $wear_outfit "none" when entering a wardrobe)
+		const o = V.outfit && V.outfit[V.wear_outfit];
+		if (o && V.worn.under_lower && o.under_lower === V.worn.under_lower.name) window.plusEquipMostLoaded();
+	};
 	/* "Change" option: a used disposable is thrown away. */
 	window.plusDiaperCanDispose = function () {
 		const it = window.plusDiaperWorn();

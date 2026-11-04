@@ -32,6 +32,12 @@ FOOD = {  # explicit meals that have no food prop: (hunger, thirst)
     "Whitney Home Dawn Breakfast Toast Eat": (600, 100), "Prison Dinner Kylar": (750, 100),
 }
 EDITS = [("StoryCaption", "after", "<<tirednesscaption>>", "<<plusneedscaption>>")]
+# Wardrobe: show each diaper's fill next to its name (listed items and the worn one).
+EDITS.append(("Widgets Wardrobe", "after", "<<wearlink_norefresh _itemData.name_cap _i>>", "<<print plusDiaperFillLabel(_item)>>"))
+# Outfits: keep an already-worn diaper of the outfit's type; otherwise equip the most loaded copy from the wardrobe.
+EDITS.append(("Widgets Outfits", "after", '<<widget "wearoutfit">>', "<<run plusOutfitPre()>>"))
+EDITS.append(("Widgets Outfits", "before", '\t<<set $wear_outfit to "none">>\n\t<<unset $storeLocation>>\n<</widget>>', "<<run plusOutfitPost()>>"))
+EDITS.append(("Widgets Wardrobe", "after", "<<print _wornItemData.name_cap>>", "<<print plusDiaperFillLabel(_wornItem)>>"))
 for p in ["Men's Toilets", "Women's Toilets", "School Boy's Toilets", "School Girl's Toilets",
           "Bathroom", "Brothel Bathroom", "Flats Poppy Bathroom"]:
     EDITS.append((p, "before", "<<pregnancyTest", "<<plusToiletLink>>"))
