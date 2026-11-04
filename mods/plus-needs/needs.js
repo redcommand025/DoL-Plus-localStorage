@@ -987,21 +987,21 @@ window.plusNowTs = function () {
 	// category, size, variable, ml [min,max], lb [min,max], avg use, cost (pence), sprite folder, icon
 	const P = "plastic-backed diaper", C = "cloth diaper", U = "pull-up";
 	const MODELS = [
-		[P, "Hyper", "plusdphyper", [12000, 12000], [8, 10], "3–4 days", 6000, "diaper-large.png"],
-		[P, "Max", "plusdpmax", [7500, 7500], [5, 6], "1–2 days", 4000, "diaper-large.png"],
-		[P, "Ultra", "plusdpultra", [5000, 5000], [3.5, 4], "1 day", 2800, "diaper-large.png"],
-		[P, "Extra Large", "plusdpxl", [3500, 3500], [2.5, 3], "12–24 hours", 1800, "diaper-large.png"],
+		[P, "Hyper", "plusdphyper", [12000, 12000], [9, 9], "3–4 days", 6000, "diaper-large.png"],
+		[P, "Max", "plusdpmax", [7500, 7500], [5.5, 5.5], "1–2 days", 4000, "diaper-large.png"],
+		[P, "Ultra", "plusdpultra", [5000, 5000], [3.75, 3.75], "1 day", 2800, "diaper-large.png"],
+		[P, "Extra Large", "plusdpxl", [3500, 3500], [2.75, 2.75], "12–24 hours", 1800, "diaper-large.png"],
 		[P, "Large", "plusdpl", [2500, 2500], [2, 2], "8–12 hours", 1300, "diaper-large.png"],
 		[P, "Medium", "plusdpm", [1800, 1800], [1.5, 1.5], "6–10 hours", 900, "diaper.png"],
 		[P, "Small", "plusdps", [1000, 1000], [1, 1], "4–8 hours", 500, "diaper-small.png"],
-		[C, "Extra Large", "pluscdxl", [2000, 2000], [1.5, 2], "6–12 hours (until capacity or comfort fails)", 3000, "cloth-diaper.png"],
-		[C, "Large", "pluscdl", [1500, 1500], [1, 1.5], "4–8 hours (until capacity or comfort fails)", 2400, "cloth-diaper.png"],
-		[C, "Medium", "pluscdm", [1000, 1000], [0.75, 1], "3–6 hours (until capacity or comfort fails)", 1800, "cloth-diaper.png"],
+		[C, "Extra Large", "pluscdxl", [2000, 2000], [1.75, 1.75], "6–12 hours (until capacity or comfort fails)", 3000, "cloth-diaper.png"],
+		[C, "Large", "pluscdl", [1500, 1500], [1.25, 1.25], "4–8 hours (until capacity or comfort fails)", 2400, "cloth-diaper.png"],
+		[C, "Medium", "pluscdm", [1000, 1000], [0.875, 0.875], "3–6 hours (until capacity or comfort fails)", 1800, "cloth-diaper.png"],
 		[C, "Small", "pluscds", [600, 600], [0.5, 0.5], "2–4 hours (until capacity or comfort fails)", 1200, "cloth-diaper.png"],
 		[U, "Large", "pluspul", [2200, 2200], [1.5, 1.5], "8–12 hours", 1800, "pull-up.png"],
 		[U, "Medium", "pluspum", [1600, 1600], [1, 1], "6–10 hours", 1200, "pull-up.png"],
 		[U, "Small", "pluspus", [1000, 1000], [0.75, 0.75], "4–8 hours", 800, "pull-up.png"],
-		[U, "Extra Small", "pluspuxs", [400, 500], [0.3, 0.5], "2–4 hours (or until first significant use saturates it)", 400, "pull-up.png"],
+		[U, "Extra Small", "pluspuxs", [450, 450], [0.4, 0.4], "2–4 hours (or until first significant use saturates it)", 400, "pull-up.png"],
 	];
 	const BLURB = { [P]: "A disposable diaper with a crinkly plastic backing.", [C]: "Soft, washable cloth. Reusable: wash it to reset it.", [U]: "Disposable underwear that pulls up and down like normal pants." };
 	const DEF = {};
@@ -1057,8 +1057,9 @@ window.plusNowTs = function () {
 		const d = def(it);
 		if (!d) return it;
 		if (!it.colour) it.colour = "pale white";
-		if (!Number.isFinite(it.plusCapMl)) it.plusCapMl = Math.round(roll(d.ml));
-		if (!Number.isFinite(it.plusCapLb)) it.plusCapLb = r2(roll(d.lb));
+		// (re)roll when missing or outside the model's current range (capacity table changes migrate old items)
+		if (!Number.isFinite(it.plusCapMl) || it.plusCapMl < d.ml[0] || it.plusCapMl > d.ml[1]) it.plusCapMl = Math.round(roll(d.ml));
+		if (!Number.isFinite(it.plusCapLb) || it.plusCapLb < d.lb[0] - 1e-9 || it.plusCapLb > d.lb[1] + 1e-9) it.plusCapLb = Math.round(roll(d.lb) * 1000) / 1000;
 		if (!Number.isFinite(it.plusMl)) it.plusMl = 0;
 		if (!Number.isFinite(it.plusLb)) it.plusLb = 0;
 		it.plusMl = Math.clamp(it.plusMl, 0, it.plusCapMl);
@@ -1157,7 +1158,7 @@ window.plusNowTs = function () {
 		it.plusMl = it.plusLb = it.plusDiaperFill = 0;
 		delete it.plusSpent;
 		delete it.plusOverflow;
-		it.plusSwellStage = it.plusSwellNoted = 0;
+		it.plusSwellStage = it.plusSwellNoted = it.plusSagNoted = 0;
 	};
 	/* Sidebar words. Pee by fill %: damp >0, wet >40%, soaked >75%, full 100%. Poop: messy >0, very messy >60%, full. */
 	window.plusDiaperWords = function (it) {
@@ -1177,7 +1178,7 @@ window.plusNowTs = function () {
 		return out.filter(Boolean);
 	};
 	window.plusDiaperKeyword = it => window.plusDiaperWords(it).join(" ");
-	const fmtLb = x => String(r2(x));
+	const fmtLb = x => String(Math.round(x * 1000) / 1000);
 	window.plusDiaperMeterText = function (it) {
 		if (!def(it)) return "";
 		init(it);
@@ -1339,12 +1340,44 @@ window.plusNowTs = function () {
 		V.plusDiaperSeen = school ? 2 : 1;
 		return V.plusDiaperSeen;
 	};
-	const SWELL_MSG = {
-		snug: ["Your diaper feels a little heavier.", "You feel your diaper start to puff up slightly."],
-		puffy: ["Your diaper feels heavier and bulkier.", "Your diaper has puffed up. You can feel it between your legs with every step."],
-		swollen: ["Your diaper has swollen noticeably. It's getting hard to walk normally.", "Your diaper feels heavy and swollen, pushing your legs apart."],
-		bulging: ["Your diaper is bulging and can't take much more.", "Your diaper is completely swollen. It sags heavily with every step."],
-		over: ["Your diaper is overflowing. It's as swollen as it can get."],
+	/* Sag tiers (sprites + stage text): 0 <25%, 1 25%, 2 50%, 3 75%, 4 100%, 5 overflowing.
+	 * Sprites: img/clothes/under-lower/<variable>/sag<N>/<integrity|penis>.png (tier 0 = the base sprite). */
+	window.plusSagTier = function (it) {
+		const d = def(it);
+		if (!d) return 0;
+		if (it.plusOverflow) return 5;
+		const f = window.plusDiaperFillFrac(it);
+		return f >= 1 - 1e-9 ? 4 : f >= 0.75 ? 3 : f >= 0.5 ? 2 : f >= 0.25 ? 1 : 0;
+	};
+	window.plusSagSrc = function (src) {
+		try {
+			const it = window.plusDiaperWorn && window.plusDiaperWorn();
+			if (!it || typeof src !== "string") return src;
+			const t = window.plusSagTier(it);
+			if (t <= 0) return src;
+			return src.replace(/^(img\/clothes\/under-lower\/plus[a-z]+)\/((?:full|frayed|torn|tattered|penis)\.png)$/, `$1/sag${t}/$2`);
+		} catch (e) {
+			return src;
+		}
+	};
+	window.plusSagHook = function () {
+		const M = typeof Renderer !== "undefined" && Renderer.CanvasModels && Renderer.CanvasModels.main;
+		if (!M || !M.layers || M.plusSagHooked) return !!(M && M.plusSagHooked);
+		for (const k of ["under_lower", "under_lower_penis"]) {
+			const L = M.layers[k];
+			if (!L || typeof L.srcfn !== "function") continue;
+			const orig = L.srcfn;
+			L.srcfn = function (options) {
+				return window.plusSagSrc(orig.call(this, options));
+			};
+		}
+		M.plusSagHooked = true;
+		return true;
+	};
+	const SAG_MSG = {
+		[P]: ["Your diaper crinkles a little louder now, the padding starting to dome out.", "Your diaper sags below your crotch, the plastic pulled taut. It crinkles with every step.", "Your diaper hangs low and heavy. You have to waddle to keep walking.", "Your diaper is stretched glassy-tight and swings heavily with each step.", "The tapes are peeling and the seams have given. Your diaper droops, leaking."],
+		[C]: ["The cloth of your diaper feels damp and soft against you.", "Your cloth diaper is sodden and sagging, clinging in heavy folds.", "Your soaked cloth diaper hangs low, squishing as you walk.", "Your cloth diaper is dark and dripping-heavy. Every step squelches.", "Your cloth diaper has given up. It sags, leaking through."],
+		[U]: ["Your pull-up feels a little thicker between your legs.", "The stretch panels of your pull-up strain as it starts to sag.", "Your pull-up droops low and squishes with every step.", "Your pull-up is completely full, stretched out and heavy.", "Your pull-up sags and leaks. It can't hold any more."],
 	};
 	const SEEN_MSG = {
 		1: ["Someone glances down at the bulge under your clothes, then looks away quickly. Your face burns.", "You catch a passer-by staring at your diaper. They whisper something to their companion.", "A stranger's eyes linger on the obvious padding under your clothes. You feel very self-conscious."],
@@ -1353,17 +1386,19 @@ window.plusNowTs = function () {
 	window.plusSwellNoticeText = function (it) {
 		const d = def(it);
 		if (!d) return "";
-		const st = window.plusSwellUpdate(it);
-		if (st <= (it.plusSwellNoted || 0)) return "";
-		it.plusSwellNoted = st;
-		const k = st > d.stages ? "over" : window.plusSwellWord(it);
-		return SWELL_MSG[k].random();
+		window.plusSwellUpdate(it);
+		const t = window.plusSagTier(it);
+		if (!Number.isFinite(it.plusSagNoted) || it.plusSagNoted > t) it.plusSagNoted = Math.min(t, Number.isFinite(it.plusSagNoted) ? it.plusSagNoted : t);
+		if (t <= it.plusSagNoted) return "";
+		it.plusSagNoted = t;
+		return SAG_MSG[d.cat][t - 1];
 	};
 	window.plusDiaperSeenText = n => (SEEN_MSG[n] || SEEN_MSG[1]).random();
 	$(document).on(":passagestart", function (ev) {
 		const V = State.variables;
 		try {
 			window.plusConcealSetup();
+			window.plusSagHook();
 			if (!V || V.intro || !V.worn || V.combat === 1) return;
 			const it = window.plusDiaperWorn();
 			if (it) window.plusSwellUpdate(it);
