@@ -17688,6 +17688,25 @@ window.plusNowTs = function () {
 		const it = window.plusDiaperWorn();
 		return !!it && !def(it).cloth && it.plusDiaperFill > 0;
 	};
+	/* "Incontinent" background: Leaky continence, a pull-up worn instead of underwear and 5 spares in the wardrobe. */
+	window.plusIncontinentStart = function () {
+		const V = State.variables;
+		if (!V.background || V.background.incontinent !== true) return false;
+		V.plusContinence = 0;
+		V.plusContinenceXP = 0;
+		const idx = setup.clothes.under_lower.findIndex(c => c.variable === "pluspullup");
+		if (idx < 0) return false;
+		const fresh = () => {
+			const it = JSON.parse(JSON.stringify(setup.clothes.under_lower[idx]));
+			it.plusDiaperFill = it.plusDiaperWet = it.plusDiaperSoil = 0;
+			it.colour = (it.colour_options && it.colour_options[0]) || it.colour; // "pale white", as the shop sets it
+			return it;
+		};
+		V.worn.under_lower = fresh();
+		if (V.wardrobe && Array.isArray(V.wardrobe.under_lower)) for (let i = 0; i < 5; i++) V.wardrobe.under_lower.push(fresh());
+		if (Array.isArray(V.backgroundTraits) && !V.backgroundTraits.includes("incontinent")) V.backgroundTraits.push("incontinent");
+		return true;
+	};
 })();
 
 </script>
@@ -198282,7 +198301,7 @@ If you want to avoid trouble, &lt;span class=&quot;gold&quot;&gt;keep your allur
 	&lt;&lt;link [[Unlock Avery&#39;s mansion|Mansion Intro Orphanage]]&gt;&gt;&lt;&lt;cheatAveryMansion&gt;&gt;&lt;&lt;npc Bailey 2&gt;&gt;&lt;&lt;/link&gt;&gt;&lt;br&gt;
 	&lt;&lt;link [[Unlock Avery&#39;s mansion at Valentines&#39;s|Mansion Intro Orphanage]]&gt;&gt;&lt;&lt;cheatAveryMansion&gt;&gt;&lt;&lt;npc Bailey 2&gt;&gt;&lt;&lt;set Time.startDate to new DateTime(2022, 2, 12, 7)&gt;&gt;&lt;&lt;/link&gt;&gt;
 
-&lt;&lt;/if&gt;&gt;</tw-passagedata><tw-passagedata pid="7" name="Widgets Version Info" tags="widget" position="850,100" size="100,100">&lt;&lt;widget &quot;versioninfo&quot;&gt;&gt;
+&lt;&lt;/if&gt;&gt;/*plusneeds*/&lt;&lt;run plusIncontinentStart()&gt;&gt;/*/plusneeds*/</tw-passagedata><tw-passagedata pid="7" name="Widgets Version Info" tags="widget" position="850,100" size="100,100">&lt;&lt;widget &quot;versioninfo&quot;&gt;&gt;
 	&lt;h3&gt;Degrees of Lewdity Plus &lt;&lt;print StartConfig.version&gt;&gt;&lt;/h3&gt;
 
 	&lt;&lt;if StartConfig.versionName&gt;&gt;
@@ -367403,7 +367422,9 @@ Alex helps you leave the vehicle and take your &lt;&lt;print $litter_size &gt; 1
 				&lt;label&gt;Green Thumb &lt;&lt;checkbox &quot;$background&quot; &quot;greenthumb&quot; autocheck&gt;&gt; - More bountiful crops and no decay when using fertiliser. Start with ne unit of fertiliser.&lt;/label&gt;*/
 				&lt;br&gt;
 				&lt;label&gt;&lt;mouse class=&quot;tooltip&quot;&gt;&lt;span class=&quot;lewd&quot;&gt;Dendrophile&lt;/span&gt; &lt;&lt;checkbox &quot;$background.plantlover&quot; false true autocheck&gt;&gt; - Plants are everything to you.&lt;span class=&quot;green&quot;&gt;You&#39;re addicted to nectar. You&#39;re more vulnerable to aphrodisiacs and alcohol. Plantpeople and plant-based tentacles no longer require hallucinations to encounter. You get a bonus to Tending as your Trauma increases.&lt;/span&gt;&lt;/mouse&gt;
-				&lt;/label&gt;
+				&lt;/label&gt;/*plusneeds*/
+				&lt;br&gt;
+				&lt;label&gt;&lt;span class=&quot;purple&quot;&gt;Incontinent&lt;/span&gt; &lt;&lt;checkbox &quot;$background.incontinent&quot; false true autocheck&gt;&gt; - You&#39;ve always struggled to hold it. &lt;span class=&quot;green&quot;&gt;You start with Leaky continence and wear pull-ups.&lt;/span&gt;&lt;/label&gt;/*/plusneeds*/
 			&lt;/div&gt;
 		&lt;/div&gt;
 		&lt;hr&gt;

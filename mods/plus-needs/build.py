@@ -40,6 +40,10 @@ EDITS.append(("mobileStats", "before", "<<if Number.isFinite($drunk) and $drunk 
 EDITS.append(("Characteristics", "after", "<<characteristic-box _deviancyConfig>>", "\n\t\t\t<<plusContinenceBox>>"))
 EDITS.append(("Statistics", "before", '<<foldout false "_miscFoldout">>', "<<plusNeedsStatistics>>\n\t"))
 EDITS.append(("Mansion Bathroom", "append", None, "<br><<plusToiletLink>>"))
+# "Incontinent" character-creator background
+EDITS.append(("Widgets Settings", "after", "You get a bonus to Tending as your Trauma increases.</span></mouse>\n\t\t\t\t</label>",
+              '\n\t\t\t\t<br>\n\t\t\t\t<label><span class="purple">Incontinent</span> <<checkbox "$background.incontinent" false true autocheck>> - You\'ve always struggled to hold it. <span class="green">You start with Leaky continence and wear pull-ups.</span></label>'))
+EDITS.append(("Start2", "append", None, "<<run plusIncontinentStart()>>"))
 # Public drinking spots and extra toilets: (passage, anchor, code). Inserted before the anchor.
 SPOTS = [
     ("Dance Studio", "<<barbicon>><<link [[Leave|Barb Street]]>><</link>>", '<<plusDrinkLink "cooler">>'),

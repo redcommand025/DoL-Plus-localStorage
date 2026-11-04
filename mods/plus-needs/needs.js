@@ -1065,4 +1065,23 @@ window.plusNowTs = function () {
 		const it = window.plusDiaperWorn();
 		return !!it && !def(it).cloth && it.plusDiaperFill > 0;
 	};
+	/* "Incontinent" background: Leaky continence, a pull-up worn instead of underwear and 5 spares in the wardrobe. */
+	window.plusIncontinentStart = function () {
+		const V = State.variables;
+		if (!V.background || V.background.incontinent !== true) return false;
+		V.plusContinence = 0;
+		V.plusContinenceXP = 0;
+		const idx = setup.clothes.under_lower.findIndex(c => c.variable === "pluspullup");
+		if (idx < 0) return false;
+		const fresh = () => {
+			const it = JSON.parse(JSON.stringify(setup.clothes.under_lower[idx]));
+			it.plusDiaperFill = it.plusDiaperWet = it.plusDiaperSoil = 0;
+			it.colour = (it.colour_options && it.colour_options[0]) || it.colour; // "pale white", as the shop sets it
+			return it;
+		};
+		V.worn.under_lower = fresh();
+		if (V.wardrobe && Array.isArray(V.wardrobe.under_lower)) for (let i = 0; i < 5; i++) V.wardrobe.under_lower.push(fresh());
+		if (Array.isArray(V.backgroundTraits) && !V.backgroundTraits.includes("incontinent")) V.backgroundTraits.push("incontinent");
+		return true;
+	};
 })();
