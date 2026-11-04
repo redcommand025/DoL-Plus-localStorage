@@ -38,6 +38,10 @@
 	<<if $plusThirst lte 0>>
 		<span class="red">Your head pounds from thirst.</span>
 	<</if>>
+	<<set _pnVis to plusDiaperVisibility()>>
+	<<if _pnVis.visible>>
+		<<if _pnVis.conceal lt 0>><span class="red">Nothing covers your diaper. Anyone can see it.</span><<else>><span class="purple">Your diaper is visible under your clothes.</span><</if>>
+	<</if>>
 <</widget>>
 
 /* Link shown in bathrooms and toilets. */
@@ -202,6 +206,8 @@ You grab a quick snack and a glass of water.
 		Times you were starving (hunger hit 0): _pns.zeroHunger
 		<br>
 		Times you were parched (thirst hit 0): _pns.zeroThirst
+		<br>
+		Times someone noticed your diaper: <<print _pns.diaperNoticed or 0>>
 		<br>
 		Absorbed by diapers: <<print (_pns.mlAbsorbed or 0).toLocaleString()>> ml, <<print Math.round((_pns.lbAbsorbed or 0) * 100) / 100>> lb
 		<br>

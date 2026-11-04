@@ -52,7 +52,7 @@ window.plusNowTs = function () {
 	window.plusNeedsInit = init;
 
 	/* Lifetime statistics shown on the Statistics page ("Needs" foldout). */
-	const STAT_KEYS = ["mlTotal", "drinks", "meals", "snacks", "kcal", "pees", "poops", "accWet", "accSoiled", "accBoth", "zeroHunger", "zeroThirst", "mlToday", "smelt", "laundromat", "accFloor", "accSpotted", "findPlace", "findPlaceSpotted", "mlAbsorbed", "lbAbsorbed"];
+	const STAT_KEYS = ["mlTotal", "drinks", "meals", "snacks", "kcal", "pees", "poops", "accWet", "accSoiled", "accBoth", "zeroHunger", "zeroThirst", "mlToday", "smelt", "laundromat", "accFloor", "accSpotted", "findPlace", "findPlaceSpotted", "mlAbsorbed", "lbAbsorbed", "diaperNoticed"];
 	function stats() {
 		const V = State.variables;
 		if (!V.plusNeedsStats || typeof V.plusNeedsStats !== "object") V.plusNeedsStats = {};
@@ -646,6 +646,8 @@ window.plusNowTs = function () {
 	};
 	/* Smell: 2% per soiled point on clothes (cap 40%) plus 16% per lb of solids held in a worn diaper;
 	 * any mess in the diaper raises the cap to 60%. Under 0.75 lb in the diaper it's only a faint whiff. */
+	const VISIBLE_MUL = 1.5;
+	window.plusVisibleMul = VISIBLE_MUL;
 	const SMELL_PER_LB = 0.16, SMELL_CAP_DIAPER = 0.6, SMELL_FAINT_LB = 0.75;
 	window.plusSmellChance = function () {
 		const lb = window.plusDiaperPoops ? window.plusDiaperPoops() : 0;
@@ -664,7 +666,7 @@ window.plusNowTs = function () {
 	};
 	window.plusSmellCheck = function (title) {
 		const V = State.variables, now = window.plusNowTs();
-		const c = window.plusSmellChance();
+		const c = Math.min(0.9, window.plusSmellChance() * (window.plusDiaperVisible && window.plusDiaperVisible() ? VISIBLE_MUL : 1));
 		if (c <= 0 || !window.plusIsPublic(title)) return false;
 		if (Number.isFinite(V.plusSmellNext) && now < V.plusSmellNext) return false;
 		if (Math.random() >= c) return false;
@@ -711,6 +713,8 @@ window.plusNowTs = function () {
 		const dp = window.plusDiaperPoops ? window.plusDiaperPoops() : 0;
 		if (dp >= 0.75) out.push(["red", "Your messy diaper smells. People nearby can probably tell."]);
 		else if (dp > 0) out.push(["purple", "There's a faint smell from your used diaper."]);
+		const vis = window.plusDiaperVisibility ? window.plusDiaperVisibility() : null;
+		if (vis && vis.visible) out.push(vis.conceal < 0 ? ["red", "Nothing covers your diaper. Anyone can see it."] : ["purple", "Your diaper is visible under your clothes."]);
 		return out;
 	};
 	/* Sidebar clothing caption prefixes, in the same style as the base game's integrityWord():
@@ -723,11 +727,11 @@ window.plusNowTs = function () {
 		const s = (it && it.plusSoiled) || 0;
 		return s >= 5 ? "heavily soiled" : s > 0 ? "soiled" : "";
 	};
-	const WORD_COLOUR = { damp: "teal", wet: "purple", soaked: "red", messy: "purple", "very messy": "red", full: "red", "full of mess": "red", grubby: "teal", dirty: "purple", filthy: "red", soiled: "purple", "heavily soiled": "red" };
+	const WORD_COLOUR = { damp: "teal", wet: "purple", soaked: "red", messy: "purple", "very messy": "red", full: "red", "full of mess": "red", snug: "lblue", puffy: "teal", swollen: "purple", bulging: "red", grubby: "teal", dirty: "purple", filthy: "red", soiled: "purple", "heavily soiled": "red" };
 	window.plusDirtWord = function (it) {
 		if (!realItem(it)) return "";
 		let out = "";
-		for (const kw of [...window.plusDiaperWords(it), window.plusDirtKeyword(it), window.plusSoilKeyword(it)]) if (kw) out += `<span class="${WORD_COLOUR[kw]}">${kw}</span> `;
+		for (const kw of [window.plusSwellWord ? window.plusSwellWord(it) : "", ...window.plusDiaperWords(it), window.plusDirtKeyword(it), window.plusSoilKeyword(it)]) if (kw) out += `<span class="${WORD_COLOUR[kw]}">${kw}</span> `;
 		return out;
 	};
 	window.plusClothesItemLines = function () {
@@ -740,6 +744,7 @@ window.plusNowTs = function () {
 			out.push(`Your ${it.name} ${it.plural ? "are" : "is"} ${dl}${it.plusSoiled > 0 ? " and soiled" : ""}.`);
 			const dw = window.plusDiaperWords(it);
 			if (window.plusDiaperDef(it)) out.push(`Your ${it.name}: ${window.plusDiaperMeterText(it)}.`);
+			if ((s === "lower" || s === "over_lower") && window.plusConcealText) out.push(`Your ${it.name}: ${window.plusConcealText(window.plusConcealOf(it, s))}.`);
 			if (dw.length) out.push(`Your ${it.name} is ${dw.join(" and ")}${window.plusDiaperDef(it).cloth ? " and needs washing" : " and needs changing"}.`);
 		}
 		return out;
@@ -889,7 +894,7 @@ window.plusNowTs = function () {
 	window.plusAccidentSpotRoll = function (floor, mul = 1) {
 		const S = stats();
 		if (floor) S.accFloor++;
-		const c = window.plusAccidentSpotChance(floor) * mul;
+		const c = window.plusAccidentSpotChance(floor) * mul * (!floor && window.plusDiaperVisible && window.plusDiaperVisible() ? window.plusVisibleMul : 1);
 		if (!(c >= 1 || Math.random() < c)) return 0;
 		S.accSpotted++;
 		if (window.plusIsSchool()) {
@@ -1136,6 +1141,8 @@ window.plusNowTs = function () {
 		if (d.single) it.plusSpent = true; // first significant use saturates a single-use pull-up
 		init(it);
 		const lw = T.plusLeakPee > 0.001, ls = T.plusLeakPoop > 0.001;
+		if (lw || ls) it.plusOverflow = 1;
+		window.plusSwellUpdate(it);
 		T.plusLeakFrac = Math.max(lw ? T.plusLeakPee : 0, ls ? T.plusLeakPoop : 0);
 		return lw && ls ? "both" : lw ? "plusBladder" : ls ? "plusBowels" : "";
 	};
@@ -1149,6 +1156,8 @@ window.plusNowTs = function () {
 		init(it);
 		it.plusMl = it.plusLb = it.plusDiaperFill = 0;
 		delete it.plusSpent;
+		delete it.plusOverflow;
+		it.plusSwellStage = it.plusSwellNoted = 0;
 	};
 	/* Sidebar words. Pee by fill %: damp >0, wet >40%, soaked >75%, full 100%. Poop: messy >0, very messy >60%, full. */
 	window.plusDiaperWords = function (it) {
@@ -1198,4 +1207,197 @@ window.plusNowTs = function () {
 		if (Array.isArray(V.backgroundTraits) && !V.backgroundTraits.includes("incontinent")) V.backgroundTraits.push("incontinent");
 		return true;
 	};
+
+	/* ---- Swell. Size scale 0-8: 1 Extra Small, 2 Small, 3 Medium, 4 Large, 5 Extra Large, 6 Ultra, 7 Max, 8 Hyper
+	 * (all categories map by size name). Fill fraction f = max(ml/capMl, lb/capLb) (spent single-use = 1).
+	 * Stage = floor(f * N) (0..N, N = stage count per model); stage N+1 = "overflowing" (anything has leaked).
+	 * Effective size (0-15 scale) = min(15, base + floor(min(stage, N) * G / N) + (overflowing ? 1 : 0)),
+	 * G (growth at 100%) per model: see GROW. A full Hyper reaches 15. ---- */
+	const SIZE = { "Extra Small": 1, Small: 2, Medium: 3, Large: 4, "Extra Large": 5, Ultra: 6, Max: 7, Hyper: 8 };
+	const SIZE_NAMES = ["nothing", "Extra Small", "Small", "Medium", "Large", "Extra Large", "Ultra", "Max", "Hyper"];
+	const STAGES = { [P]: { Hyper: 20, Max: 15, Ultra: 10, "Extra Large": 8, Large: 5, Medium: 4, Small: 3 }, [C]: { "Extra Large": 5, Large: 4, Medium: 3, Small: 2 }, [U]: { Large: 4, Medium: 3, Small: 3, "Extra Small": 2 } };
+	const GROW = { [P]: { Hyper: 7, Max: 6, Ultra: 5, "Extra Large": 4, Large: 3, Medium: 3, Small: 2 }, [C]: { "Extra Large": 4, Large: 3, Medium: 2, Small: 1 }, [U]: { Large: 3, Medium: 2, Small: 2, "Extra Small": 1 } };
+	const SIZE_MAX = 15;
+	for (const d of Object.values(DEF)) {
+		d.base = SIZE[d.size];
+		d.stages = STAGES[d.cat][d.size];
+		d.grow = GROW[d.cat][d.size];
+		d.thresholds = Array.from({ length: d.stages }, (_, i) => Math.round(((i + 1) / d.stages) * 10000) / 100);
+	}
+	window.plusSizeNames = SIZE_NAMES;
+	window.plusDiaperFillFrac = function (it) {
+		if (!def(it)) return 0;
+		init(it);
+		if (spent(it) && (it.plusMl > 0 || it.plusLb > 0)) return 1;
+		return Math.max(it.plusMl / it.plusCapMl, it.plusLb / it.plusCapLb);
+	};
+	window.plusSwellStage = function (it) {
+		const d = def(it);
+		if (!d) return 0;
+		if (it.plusOverflow) return d.stages + 1;
+		return Math.min(d.stages, Math.floor(window.plusDiaperFillFrac(it) * d.stages + 1e-9));
+	};
+	window.plusSwellUpdate = function (it) {
+		if (!def(it)) return 0;
+		it.plusSwellStage = window.plusSwellStage(it);
+		if (!Number.isFinite(it.plusSwellNoted)) it.plusSwellNoted = 0;
+		if (it.plusSwellNoted > it.plusSwellStage) it.plusSwellNoted = it.plusSwellStage;
+		return it.plusSwellStage;
+	};
+	window.plusDiaperSize = function (it) {
+		const d = def(it);
+		if (!d) return 0;
+		const st = window.plusSwellStage(it), over = st > d.stages;
+		return Math.min(SIZE_MAX, d.base + Math.floor((Math.min(st, d.stages) * d.grow) / d.stages) + (over ? 1 : 0));
+	};
+	window.plusSwellWord = function (it) {
+		const d = def(it);
+		if (!d) return "";
+		const st = window.plusSwellStage(it);
+		if (st <= 0) return "";
+		if (st >= d.stages) return "bulging";
+		return st * 3 >= d.stages * 2 ? "swollen" : st * 3 >= d.stages ? "puffy" : "snug";
+	};
+	/* ---- Conceal 0-8: the largest diaper size an item can hide. Keyword defaults, per-item overrides. ---- */
+	/* ---- Conceal 0-15 (same scale as effective diaper size; 15 = a fully swollen Hyper). ---- */
+	const CONCEAL_OVERRIDE = { "school trousers": 4, "school shorts": 1, "school skirt": 7, jeans: 4, "baggy jeans": 9, overalls: 12, "long skirt": 10, "maid skirt": 8, kimono: 10, "witch robe": 15, hanfu: 10, "gym bloomers": 0, leggings: 0, "bike shorts": 0, "micro skirt": 1, "mini skirt": 5, "yoga pants": 0, "gothic trousers": 4, "short cheongsam skirt": 6, "skimpy lolita skirt": 5, "short ballgown skirt": 7, shortalls: 5, "wide leg trousers": 6, "leather skirt": 5, "leather miniskirt": 3, "sexy nun's habit skirt": 5, "patient gown skirt": 8, "virgin killer skirt": 4 };
+	const CONCEAL_RULES = [
+		[/swim|bikini|leotard|tights|legging|thong|bloomer|bike short|hot ?pants|booty|latex|leather|spandex|micro|body ?suit|wetsuit|catsuit|unitard/, 0],
+		[/robe|cloak|gown|cassock|habit/, 15, "over"],
+		[/coat|cape|poncho/, 14, "over"],
+		[/overall|dungaree|jumpsuit/, 12],
+		[/baggy|cargo|hakama|harem|kilt/, 11],
+		[/mini|short (cut|school) skirt/, 5],
+		[/long|maxi|ankle|floor|gown|kimono|robe|habit|cassock|ballgown|hanfu/, 10],
+		[/dress|sundress|pinafore|gothic|lolita|cheongsam|qipao/, 9],
+		[/skirt|skort/, 7],
+		[/sweat|jogger|track|pyjama|pajama|lounge/, 6],
+		[/shorts/, 1],
+		[/jeans|trouser|pants|slacks|chino/, 4],
+	];
+	window.plusConcealOf = function (it, slot) {
+		if (!it || !it.name || !Array.isArray(it.type) || it.type.includes("naked")) return -1;
+		if (Number.isFinite(it.plusConceal)) return it.plusConceal;
+		slot = slot || it.slot;
+		if (slot === "under_lower" || slot === "under_upper") return 0;
+		const n = it.name.toLowerCase();
+		if (n in CONCEAL_OVERRIDE) return CONCEAL_OVERRIDE[n];
+		for (const [re, v, only] of CONCEAL_RULES) if (re.test(n) && (!only || slot === "over_lower")) return v;
+		return slot === "over_lower" ? 13 : 4;
+	};
+	const sizeLabel = v => (v <= 8 ? SIZE_NAMES[Math.max(0, v)] : v >= 15 ? "fully swollen Hyper" : v >= 12 ? "swollen Hyper" : "puffy Hyper");
+	window.plusSizeLabel = sizeLabel;
+	const concealText = v => (v <= 0 ? "Can hide: no diaper (0/15)" : `Can hide: up to ${sizeLabel(v)} (${v}/15)`);
+	window.plusConcealText = concealText;
+	window.plusConcealSetupDone = false;
+	window.plusConcealSetup = function () {
+		if (window.plusConcealSetupDone || typeof setup === "undefined" || !setup.clothes) return false;
+		for (const slot of ["lower", "over_lower"])
+			for (const it of setup.clothes[slot] || []) {
+				if (!it || !it.name || (Array.isArray(it.type) && it.type.includes("naked"))) continue;
+				it.plusConceal = window.plusConcealOf(it, slot);
+				const t = concealText(it.plusConceal);
+				if (typeof it.description === "string" && !it.description.includes("Can hide:")) it.description += ` ${t}.`;
+			}
+		window.plusConcealSetupDone = true;
+		return true;
+	};
+	/* Worn: effective conceal = max over lower/over_lower (-1 = nothing worn there). */
+	window.plusEffectiveConceal = function () {
+		const W = State.variables.worn || {};
+		let c = -1;
+		for (const s of ["lower", "over_lower"]) c = Math.max(c, window.plusConcealOf(W[s], s));
+		return c;
+	};
+	window.plusDiaperVisibility = function () {
+		const it = window.plusDiaperWorn();
+		if (!it) return { worn: false, visible: false, size: 0, conceal: window.plusEffectiveConceal(), over: 0 };
+		const size = window.plusDiaperSize(it), conceal = window.plusEffectiveConceal();
+		const visible = conceal < 0 || size > conceal;
+		return { worn: true, visible, size, conceal, over: visible ? size - Math.max(0, conceal) : 0, stage: window.plusSwellStage(it), word: window.plusSwellWord(it) };
+	};
+	window.plusDiaperVisible = () => window.plusDiaperVisibility().visible;
+	/* Noticing: 3% per size point over conceal, cap 25%, at most once per 30 game minutes, public passages only. */
+	const NOTICE_PER = 0.03, NOTICE_CAP = 0.25, NOTICE_COOLDOWN = 30 * 60, NOTICE_STRESS = 50;
+	window.plusDiaperNoticeChance = function (title = State.passage) {
+		const v = window.plusDiaperVisibility();
+		if (!v.visible || !window.plusIsPublic(title)) return 0;
+		return Math.min(NOTICE_CAP, NOTICE_PER * v.over);
+	};
+	window.plusDiaperNoticeCheck = function (title, force) {
+		const V = State.variables, now = window.plusNowTs();
+		const c = window.plusDiaperNoticeChance(title);
+		if (c <= 0) return 0;
+		if (Number.isFinite(V.plusDiaperSeenNext) && now < V.plusDiaperSeenNext) return 0;
+		if (!force && Math.random() >= c) return 0;
+		V.plusDiaperSeenNext = now + NOTICE_COOLDOWN;
+		const S = V.plusNeedsStats || (V.plusNeedsStats = {});
+		S.diaperNoticed = (S.diaperNoticed || 0) + 1;
+		if (Number.isFinite(V.stress)) V.stress = Math.min(Number.isFinite(V.stressmax) ? V.stressmax : 10000, V.stress + NOTICE_STRESS);
+		const school = window.plusIsSchool(title);
+		if (school) window.plusSchoolBullyBump();
+		V.plusDiaperSeen = school ? 2 : 1;
+		return V.plusDiaperSeen;
+	};
+	const SWELL_MSG = {
+		snug: ["Your diaper feels a little heavier.", "You feel your diaper start to puff up slightly."],
+		puffy: ["Your diaper feels heavier and bulkier.", "Your diaper has puffed up. You can feel it between your legs with every step."],
+		swollen: ["Your diaper has swollen noticeably. It's getting hard to walk normally.", "Your diaper feels heavy and swollen, pushing your legs apart."],
+		bulging: ["Your diaper is bulging and can't take much more.", "Your diaper is completely swollen. It sags heavily with every step."],
+		over: ["Your diaper is overflowing. It's as swollen as it can get."],
+	};
+	const SEEN_MSG = {
+		1: ["Someone glances down at the bulge under your clothes, then looks away quickly. Your face burns.", "You catch a passer-by staring at your diaper. They whisper something to their companion.", "A stranger's eyes linger on the obvious padding under your clothes. You feel very self-conscious."],
+		2: ["A group of students points at the bulge under your clothes and snickers. 'Is that a diaper?'", "You hear giggling behind you. Someone has noticed your diaper, and word is spreading."],
+	};
+	window.plusSwellNoticeText = function (it) {
+		const d = def(it);
+		if (!d) return "";
+		const st = window.plusSwellUpdate(it);
+		if (st <= (it.plusSwellNoted || 0)) return "";
+		it.plusSwellNoted = st;
+		const k = st > d.stages ? "over" : window.plusSwellWord(it);
+		return SWELL_MSG[k].random();
+	};
+	window.plusDiaperSeenText = n => (SEEN_MSG[n] || SEEN_MSG[1]).random();
+	$(document).on(":passagestart", function (ev) {
+		const V = State.variables;
+		try {
+			window.plusConcealSetup();
+			if (!V || V.intro || !V.worn || V.combat === 1) return;
+			const it = window.plusDiaperWorn();
+			if (it) window.plusSwellUpdate(it);
+			const t = ev.passage.title;
+			if (V.plusSeenLastPassage !== t || V.plusSeenLastTs !== window.plusNowTs()) {
+				V.plusSeenLastPassage = t;
+				V.plusSeenLastTs = window.plusNowTs();
+				window.plusDiaperNoticeCheck(t);
+			}
+		} catch (e) {
+			console.warn("plusSwell", e);
+		}
+	});
+	$(document).on(":passagerender", function (ev) {
+		const V = State.variables;
+		if (!V || V.intro || V.combat === 1 || !V.worn) return;
+		try {
+			const out = [];
+			const it = window.plusDiaperWorn();
+			if (it) {
+				const m = window.plusSwellNoticeText(it);
+				if (m) out.push(`<span class="purple">${m}</span>`);
+			}
+			if (V.plusDiaperSeen) {
+				out.push(`<span class="red">${window.plusDiaperSeenText(V.plusDiaperSeen)}</span> You feel stressed.`);
+				delete V.plusDiaperSeen;
+			}
+			if (!out.length) return;
+			const div = document.createElement("div");
+			div.className = "plus-needs-swell";
+			$(div).wiki(out.join("<br>") + "<br><br>");
+			ev.content.prepend(div);
+		} catch (e) {
+			console.warn("plusSwellRender", e);
+		}
+	});
 })();
