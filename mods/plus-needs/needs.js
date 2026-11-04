@@ -621,14 +621,24 @@ window.plusNowTs = function () {
 				continue;
 			}
 			clInit(it);
+			let fresh = false;
 			if (!it.plusId) {
 				it.plusId = ++V.plusClothId;
 				it.plusDay = day;
-			} else if (V.plusWornIds[s] !== it.plusId) {
+				fresh = true;
+			}
+			const holds = window.plusDiaperDef && window.plusDiaperDef(it) && (it.plusMl > 0 || it.plusLb > 0);
+			if (!fresh && V.plusWornIds[s] !== it.plusId && !holds) {
 				it.plusSoiled = Math.max(0, it.plusSoiled - 1); // it was taken off since we last saw it
 			}
 			if (!Number.isFinite(it.plusDay)) it.plusDay = day;
-			if (day > it.plusDay) it.plusSoiled = Math.max(0, it.plusSoiled - (day - it.plusDay));
+			// A diaper's contents don't dry out: no daily soiled fade while it still holds anything.
+			if (day > it.plusDay && !holds) it.plusSoiled = Math.max(0, it.plusSoiled - (day - it.plusDay));
+			// The base game dries $underlowerwet over time; keep a worn diaper's wetness in step with what it holds.
+			if (s === "under_lower" && holds && Number.isFinite(V.underlowerwet)) {
+				const f = Math.min(1, it.plusMl / (it.plusCapMl || 1));
+				V.underlowerwet = Math.max(V.underlowerwet, Math.round(95 * f));
+			}
 			it.plusDay = day;
 			V.plusWornIds[s] = it.plusId;
 		}
@@ -680,7 +690,7 @@ window.plusNowTs = function () {
 		for (const it of worn()) {
 			it.plusDirt = Math.max(0, it.plusDirt - (150 + Math.floor(Math.random() * 101)));
 			it.plusSoiled = Math.max(0, it.plusSoiled - (1 + Math.floor(Math.random() * 2)));
-			if (window.plusDiaperDef(it) && window.plusDiaperDef(it).cloth) window.plusDiaperReset(it);
+			// scrubbing with paper towels doesn't empty a diaper; only changing/washing it does
 		}
 		return true;
 	};
@@ -1183,6 +1193,25 @@ window.plusNowTs = function () {
 		if (!def(it)) return "";
 		init(it);
 		return `${Math.round(it.plusMl)}/${it.plusCapMl} ml, ${fmtLb(it.plusLb)}/${fmtLb(it.plusCapLb)} lb`;
+	};
+	/* The base game dries $underlowerwet over time (and on sleep/pass). Re-pin it to what a worn diaper holds after every passage. */
+	window.plusDiaperPinWet = function () {
+		const V = State.variables, it = window.plusDiaperWorn();
+		if (!it || !(it.plusMl > 0) || !Number.isFinite(V.underlowerwet)) return;
+		V.underlowerwet = Math.max(V.underlowerwet, Math.round(95 * Math.min(1, it.plusMl / (it.plusCapMl || 1))));
+	};
+	$(document).on(":passageend", () => { try { window.plusDiaperPinWet(); } catch (e) { console.error(e); } });
+	/* Sidebar meter data (lb scaled x1000 so the bar macro works on integers). null when no diaper is worn. */
+	window.plusDiaperBarData = function () {
+		const it = window.plusDiaperWorn();
+		if (!it) return null;
+		init(it);
+		const sp = spent(it);
+		return {
+			ml: sp && it.plusMl > 0 ? it.plusCapMl : Math.round(it.plusMl), capMl: it.plusCapMl,
+			lb: sp && it.plusLb > 0 ? Math.round(it.plusCapLb * 1000) : Math.round(it.plusLb * 1000), capLb: Math.round(it.plusCapLb * 1000),
+			mlText: `${Math.round(it.plusMl)}/${it.plusCapMl} ml`, lbText: `${fmtLb(it.plusLb)}/${fmtLb(it.plusCapLb)} lb`,
+		};
 	};
 	/* "Change" option: a used disposable is thrown away. */
 	window.plusDiaperCanDispose = function () {

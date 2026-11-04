@@ -23,12 +23,41 @@
 	</div>
 <</widget>>
 
+/* Diaper meters (shown only while a mod diaper is worn): Pee ml/capacity, Poo lb/capacity. */
+<<widget "plusdiaperbar">>
+	/* _args: label, value, max, text */
+	<<set _pnDV to Math.clamp(_args[1], 0, _args[2])>>
+	<div @class="'plusneedscaption plusdiaperbar' + ($options.showCaptionText is true ? '' : ' rightMeterText')" @title="_args[0] + ': ' + _args[3]">
+		<div @class="($options.showCaptionText is true ? '' : 'rightMeterText')">
+			_args[0]:
+			<<if $options.showCaptionText is true>>
+				<<if _pnDV gte _args[2]>><span class="red">_args[3] (full)</span>
+				<<elseif _pnDV gte _args[2] * 0.75>><span class="purple">_args[3]</span>
+				<<elseif _pnDV gt 0>><span class="lblue">_args[3]</span>
+				<<else>><span class="green">_args[3]</span>
+				<</if>>
+			<</if>>
+		</div>
+		<<set _showCaptionText to !$options.showCaptionText>>
+		<<statbar 0 _pnDV _args[2] _showCaptionText>>
+	</div>
+<</widget>>
+
+<<widget "plusdiaperbars">>
+	<<set _pnDB to plusDiaperBarData()>>
+	<<if _pnDB>>
+		<<plusdiaperbar "Pee" _pnDB.ml _pnDB.capMl _pnDB.mlText>>
+		<<plusdiaperbar "Poo" _pnDB.lb _pnDB.capLb _pnDB.lbText>>
+	<</if>>
+<</widget>>
+
 <<widget "plusneedscaption">>
 	<<run plusNeedsInit()>>
 	<<plusneedsbar "Hunger" $plusHunger "You feel well fed." "You could go for a snack." "You should eat something." "You're starving.">>
 	<<plusneedsbar "Thirst" $plusThirst "You're not thirsty." "You could use a drink." "You should drink something." "You're parched.">>
 	<<plusneedsbar "Bladder" $plusBladder "You feel comfortable." "You'll need the toilet at some point." "You should find a toilet soon." "You really need a toilet now!">>
 	<<plusneedsbar "Bowels" $plusBowels "You feel comfortable." "You'll need the toilet at some point." "You should find a toilet soon." "You really need a toilet now!">>
+	<<plusdiaperbars>>
 	<<if $plusHunger lte 0 or $plusThirst lte 0>>
 		<span class="red">You feel weak.</span>
 	<</if>>
