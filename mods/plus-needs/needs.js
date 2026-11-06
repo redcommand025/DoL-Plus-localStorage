@@ -46,6 +46,10 @@ window.plusNowTs = function () {
 		if (!Number.isFinite(V.plusContinenceXP)) V.plusContinenceXP = 0;
 		if (!Number.isFinite(V.insecurity_diaper)) V.insecurity_diaper = 0;
 		if (!Number.isFinite(V.acceptance_diaper)) V.acceptance_diaper = 0;
+		if (!Number.isFinite(V.plusContRep)) V.plusContRep = 0;
+		if (!Number.isFinite(V.plusContRepCleanDays)) V.plusContRepCleanDays = 0;
+		if (V.plusContRepDayGain !== 0 && V.plusContRepDayGain !== 1) V.plusContRepDayGain = 0;
+		if (!Number.isFinite(V.plusContRepDecayDay)) V.plusContRepDecayDay = dayKey();
 		if (!V.uncomfortable || typeof V.uncomfortable !== "object") V.uncomfortable = {};
 		if (V.uncomfortable.diaperSeen === undefined) V.uncomfortable.diaperSeen = true;
 		if (V.uncomfortable.diaperUse === undefined) V.uncomfortable.diaperUse = true;
@@ -122,6 +126,7 @@ window.plusNowTs = function () {
 		const V = State.variables;
 		if (!V || V.intro || !Number.isFinite(minutes) || minutes <= 0) return;
 		init();
+		try { if (typeof window.plusContRepDecay === "function") window.plusContRepDecay(); } catch (e) {}
 		const longPass = Math.max(minutes, window.plusNeedsPassTotal || 0) >= LONG_PASS;
 		
 		const loss = {};
@@ -1048,6 +1053,7 @@ window.plusNowTs = function () {
 		if (spotted) {
 			S.findPlaceSpotted++;
 			window.plusNeedsSpotted();
+			try { if (typeof window.plusContRepOnOutdoor === "function") window.plusContRepOnOutdoor(fpTitle()); } catch (e) {}
 			if (window.plusIsSchool(fpTitle())) window.plusSchoolBullyBump();
 		}
 		return spotted;
@@ -1143,6 +1149,7 @@ window.plusNowTs = function () {
 			pleading: desperate ? 0.20 : urgent ? 0.12 : 0,
 			visible: visible ? -0.18 : 0,
 			smell: smell ? -0.16 : 0,
+			contRep: typeof window.plusContRepRestroomMod === "function" ? window.plusContRepRestroomMod() : 0,
 		};
 		let p = RESTROOM_BASE;
 		for (const k of Object.keys(mods)) p += mods[k];
@@ -1200,6 +1207,224 @@ window.plusNowTs = function () {
 		V.plusRestroomLast = out;
 		return out;
 	};
+
+	/* ---- Continence reputation (0-1000): witnessed accidents and visible diapers. ----
+	 * Uses the same tier names as the Social fame panel, scaled to 0-1000
+	 * (Unknown → Obscure → Low-key → Known → Recognised → Famous → Notorious). */
+	const CONTREP_STATES = [
+		{ min: 0, name: "Unknown", color: "green", restroom: 0, work: 1 },
+		{ min: 30, name: "Obscure", color: "teal", restroom: -0.02, work: 0.97 },
+		{ min: 100, name: "Low-key", color: "lblue", restroom: -0.05, work: 0.94 },
+		{ min: 200, name: "Known", color: "blue", restroom: -0.08, work: 0.90 },
+		{ min: 400, name: "Recognised", color: "purple", restroom: -0.12, work: 0.86 },
+		{ min: 600, name: "Famous", color: "pink", restroom: -0.16, work: 0.80 },
+		{ min: 1000, name: "Notorious", color: "red", restroom: -0.22, work: 0.74 },
+	];
+	const CONTREP_GAIN = {
+		absorbed: { plusBladder: 8, plusBowels: 10, both: 14 },
+		clothed: { plusBladder: 20, plusBowels: 28, both: 36 },
+		floor: { plusBladder: 40, plusBowels: 50, both: 60 },
+		seen: 4, wet: 3, dirty: 4, outdoor: 12,
+		busyMul: 1.5, schoolMul: 1.5, nightMul: 0.5, seenBusyMul: 1.25,
+	};
+	const CONTREP_DECAY = { afterGain: 4, clean: 12, cleanStep: 4, max: 28 };
+	const CONTREP_REMARK_CHANCE = [0, 0, 0, 0.08, 0.15, 0.25, 0.40];
+	const CONTREP_REMARK_CD = 60 * 60;
+	const CONTREP_REMARK_STRESS = 8;
+	const CONTREP_REMARKS = {
+		3: [
+			"Someone gives you a second look, as if they're trying to remember why they recognise you.",
+			"A passer-by glances at you and whispers something to their friend.",
+		],
+		4: [
+			"You hear someone murmur, \"That's the one who had that accident,\" as you walk past.",
+			"A stranger looks at you, then quickly away, like they've heard a story about you.",
+		],
+		5: [
+			"Two townsfolk stop talking when they see you. One of them mutters something about needing to be more careful.",
+			"A shopper tugs their friend's sleeve and nods in your direction. You catch the word \"accident.\"",
+		],
+		6: [
+			"People glance at you and smirk. Someone says, just loud enough, \"Watch out they don't have another accident.\"",
+			"A group of locals goes quiet as you pass, then one of them snickers. Your reputation has clearly travelled.",
+			"Someone calls after you, \"There's the infamous one. Better find a toilet.\"",
+		],
+	};
+	function contWhich(which) {
+		if (which === "both" || which === "plusBowels" || which === "plusBladder") return which;
+		return "plusBladder";
+	}
+	window.plusContRepStates = CONTREP_STATES;
+	window.plusContRepGains = CONTREP_GAIN;
+	window.plusContRepDecayInfo = CONTREP_DECAY;
+	window.plusContRepInit = function () {
+		const V = State.variables;
+		if (!V) return;
+		if (!Number.isFinite(V.plusContRep)) V.plusContRep = 0;
+		if (!Number.isFinite(V.plusContRepCleanDays)) V.plusContRepCleanDays = 0;
+		if (V.plusContRepDayGain !== 0 && V.plusContRepDayGain !== 1) V.plusContRepDayGain = 0;
+		if (!Number.isFinite(V.plusContRepDecayDay)) V.plusContRepDecayDay = window.plusDayKey();
+	};
+	window.plusContRepInfo = function () {
+		window.plusContRepInit();
+		const v = State.variables.plusContRep || 0;
+		let st = CONTREP_STATES[0];
+		for (const row of CONTREP_STATES) if (v >= row.min) st = row;
+		return Object.assign({ value: v, index: CONTREP_STATES.indexOf(st) }, st);
+	};
+	window.plusContRepLabel = function () {
+		return window.plusContRepInfo().name;
+	};
+	window.plusContRepRestroomMod = function () {
+		return window.plusContRepInfo().restroom;
+	};
+	window.plusContRepWorkMul = function () {
+		return window.plusContRepInfo().work;
+	};
+	window.plusContRepAdd = function (amt, opts) {
+		window.plusContRepInit();
+		const V = State.variables;
+		const n = Math.round(Number(amt) || 0);
+		if (!n) return V.plusContRep;
+		V.plusContRep = Math.clamp(V.plusContRep + n, 0, 1000);
+		if (n > 0 && !(opts && opts.quiet)) V.plusContRepDayGain = 1;
+		return V.plusContRep;
+	};
+	window.plusContRepOnAccident = function (seen, opts = {}) {
+		if (!(seen > 0)) return 0;
+		window.plusContRepInit();
+		const title = opts.title || State.passage;
+		const table = opts.absorbed ? CONTREP_GAIN.absorbed : opts.floor ? CONTREP_GAIN.floor : CONTREP_GAIN.clothed;
+		let amt = table[contWhich(opts.which)];
+		const isBusy = opts.busy != null ? !!opts.busy : busy(title);
+		const isSchool = opts.school != null ? !!opts.school : window.plusIsSchool(title);
+		const isNight = opts.night != null ? !!opts.night : night();
+		if (isBusy) amt = Math.round(amt * CONTREP_GAIN.busyMul);
+		if (isSchool) amt = Math.round(amt * CONTREP_GAIN.schoolMul);
+		if (isNight) amt = Math.round(amt * CONTREP_GAIN.nightMul);
+		window.plusContRepAdd(amt);
+		return amt;
+	};
+	window.plusContRepOnSeen = function (opts = {}) {
+		window.plusContRepInit();
+		const title = opts.title || State.passage;
+		let amt = CONTREP_GAIN.seen;
+		const it = typeof window.plusDiaperWorn === "function" ? window.plusDiaperWorn() : null;
+		const wet = opts.wet != null ? !!opts.wet : !!(it && it.plusMl > 0);
+		const dirty = opts.dirty != null ? !!opts.dirty : !!(it && it.plusLb > 0);
+		if (wet) amt += CONTREP_GAIN.wet;
+		if (dirty) amt += CONTREP_GAIN.dirty;
+		const isBusy = opts.busy != null ? !!opts.busy : busy(title);
+		const isSchool = opts.school != null ? !!opts.school : window.plusIsSchool(title);
+		if (isBusy) amt = Math.round(amt * CONTREP_GAIN.seenBusyMul);
+		if (isSchool) amt = Math.round(amt * CONTREP_GAIN.seenBusyMul);
+		window.plusContRepAdd(amt);
+		return amt;
+	};
+	window.plusContRepOnOutdoor = function (title) {
+		let amt = CONTREP_GAIN.outdoor;
+		if (busy(title)) amt = Math.round(amt * CONTREP_GAIN.busyMul);
+		if (window.plusIsSchool(title)) amt = Math.round(amt * CONTREP_GAIN.schoolMul);
+		if (night()) amt = Math.round(amt * CONTREP_GAIN.nightMul);
+		window.plusContRepAdd(amt);
+		return amt;
+	};
+	window.plusContRepDecayAmt = function (cleanDays, hadGain) {
+		if (hadGain) return CONTREP_DECAY.afterGain;
+		const extra = Math.max(0, (cleanDays || 1) - 1);
+		return Math.min(CONTREP_DECAY.max, CONTREP_DECAY.clean + extra * CONTREP_DECAY.cleanStep);
+	};
+	window.plusContRepDecay = function () {
+		window.plusContRepInit();
+		const V = State.variables;
+		const day = window.plusDayKey();
+		if (V.plusContRepDecayDay === day) return 0;
+		let days = 1;
+		if (Number.isFinite(V.plusContRepDecayDay) && day > V.plusContRepDecayDay) days = Math.min(30, day - V.plusContRepDecayDay);
+		let total = 0;
+		for (let i = 0; i < days; i++) {
+			if (V.plusContRepDayGain) V.plusContRepCleanDays = 0;
+			else V.plusContRepCleanDays = (V.plusContRepCleanDays || 0) + 1;
+			const amt = window.plusContRepDecayAmt(V.plusContRepCleanDays, !!V.plusContRepDayGain);
+			V.plusContRepDayGain = 0;
+			const next = Math.clamp((V.plusContRep || 0) - amt, 0, 1000);
+			total += (V.plusContRep || 0) - next;
+			V.plusContRep = next;
+		}
+		V.plusContRepDecayDay = day;
+		return total;
+	};
+	window.plusContRepRemarkStress = function () {
+		const V = State.variables;
+		if (typeof window.plusDiaperAccepted === "function" && window.plusDiaperAccepted()) return 0;
+		const acc = Number(V && V.acceptance_diaper) || 0;
+		if (acc >= 500) return Math.round(CONTREP_REMARK_STRESS / 2);
+		return CONTREP_REMARK_STRESS;
+	};
+	window.plusContRepRemarkChance = function () {
+		return CONTREP_REMARK_CHANCE[window.plusContRepInfo().index] || 0;
+	};
+	window.plusContRepRemarkCheck = function (title, force) {
+		const V = State.variables;
+		if (!V || V.combat === 1 || V.intro) return "";
+		const info = window.plusContRepInfo();
+		const lines = CONTREP_REMARKS[info.index];
+		if (!lines || !lines.length) return "";
+		if (!force && !window.plusIsPublic(title || State.passage)) return "";
+		const now = window.plusNowTs();
+		if (!force && Number.isFinite(V.plusContRepRemarkNext) && now < V.plusContRepRemarkNext) return "";
+		if (!force && Math.random() >= window.plusContRepRemarkChance()) return "";
+		V.plusContRepRemarkNext = now + CONTREP_REMARK_CD;
+		const text = lines[Math.floor(Math.random() * lines.length)];
+		const stress = window.plusContRepRemarkStress();
+		if (stress && Number.isFinite(V.stress)) {
+			V.stress = Math.min(Number.isFinite(V.stressmax) ? V.stressmax : 10000, V.stress + stress);
+			V.plusContRepRemarkStressed = 1;
+		} else delete V.plusContRepRemarkStressed;
+		V.plusContRepRemark = text;
+		return text;
+	};
+	window.plusKnockAdjustPool = function (opts = {}) {
+		const pool = opts.pool || (typeof T !== "undefined" && T.eventpool) || (State.temporary && State.temporary.eventpool);
+		if (!Array.isArray(pool)) return pool;
+		const title = opts.title != null ? opts.title : (State.passage || "");
+		if (!opts.force && !/(House Knock|Flats Knock)/.test(title)) return pool;
+		const mul = window.plusContRepWorkMul();
+		if (!(mul < 1)) return pool;
+		for (const ev of pool) {
+			if (!ev || typeof ev.content !== "string" || ev.content.indexOf("Ask for work") < 0) continue;
+			const w = typeof ev.weight === "function" ? ev.weight() : ev.weight;
+			ev.weight = (Number.isFinite(w) ? w : 1) * mul;
+		}
+		return pool;
+	};
+	$(document).on(":passagestart", function (ev) {
+		const V = State.variables;
+		if (!V || V.intro || V.combat === 1) return;
+		try {
+			window.plusContRepDecay();
+			const t = ev.passage && ev.passage.title;
+			if (V.plusContRepLastPassage !== t || V.plusContRepLastTs !== window.plusNowTs()) {
+				V.plusContRepLastPassage = t;
+				V.plusContRepLastTs = window.plusNowTs();
+				window.plusContRepRemarkCheck(t);
+			}
+		} catch (e) {
+			console.warn("plusContRep", e);
+		}
+	});
+	$(document).on(":passagerender", function (ev) {
+		const V = State.variables;
+		if (!V || !V.plusContRepRemark || V.combat === 1 || V.intro) return;
+		const text = V.plusContRepRemark;
+		const stressed = V.plusContRepRemarkStressed;
+		delete V.plusContRepRemark;
+		delete V.plusContRepRemarkStressed;
+		const div = document.createElement("div");
+		div.className = "plus-needs-contrep";
+		div.innerHTML = `<span class="purple">${text}</span>${stressed ? " You feel stressed." : ""}<br><br>`;
+		ev.content.prepend(div);
+	});
 })();
 
 /* ---- Classroom: ask the teacher to leave for the toilet / a drink ---- */
@@ -1779,6 +2004,7 @@ window.plusNowTs = function () {
 		const S = V.plusNeedsStats || (V.plusNeedsStats = {});
 		S.diaperNoticed = (S.diaperNoticed || 0) + 1;
 		try { window.plusDiaperExposure(); } catch (e) {}
+		try { if (typeof window.plusContRepOnSeen === "function") window.plusContRepOnSeen({ title: title }); } catch (e) {}
 		if (window.plusDiaperStressApplies("seen") && Number.isFinite(V.stress)) {
 			V.stress = Math.min(Number.isFinite(V.stressmax) ? V.stressmax : 10000, V.stress + NOTICE_STRESS);
 			V.plusDiaperSeenStressed = 1;

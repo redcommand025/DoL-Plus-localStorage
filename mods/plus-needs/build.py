@@ -60,6 +60,7 @@ EDITS.append(("Widgets modUpdate", "after",
 EDITS.append(("Pharmacy", "before", "Looking at the items on the shelves, you notice a few objects of interest.", "<<plusDiaperShop>>"))
 EDITS.append(("Clothing Shop", "after", '<div id="clothingShop-div" class="main-shop-div">', "<<plusDiaperShop>>"))
 EDITS.append(("Characteristics", "before", '<</widget>>\n\n<<widget "heatRutDisplay">>', "\n<<plusDiaperInsecurity>>\n"))
+EDITS.append(("Social", "after", "<<relation-box-simple _overallFameBoxConfig>>", "\n\t\t\t<<plusContRepFame>>"))
 EDITS.append(("Widgets Attitudes", "before", "<<if $attitudesControl.unlockProstitution>>", "<<plusDiaperAttitudes>>"))
 EDITS.append(("Widgets Attitudes", "after",
               'V.attitudesControl.unlockExhibitionismUnderwear = V.exhibitionism >= 35;',
@@ -123,6 +124,8 @@ JS_PATCHES = [
     ("\tif (V.locker_suspicion > 0) statChange.lockerSuspicion(-1);",
      '\n\tif (typeof window.plusDirtBullyDaily === "function") window.plusDirtBullyDaily();'),
     ("function wearProp(prop, colour, accColour) {", '\n\tif (typeof window.plusNeedsProp === "function") window.plusNeedsProp(prop);'),
+    ("Macro.add(\"runeventpool\", {\n\tskipArgs: true,\n\thandler() {\n\t\tlet pick;",
+     '\n\t\tif (typeof window.plusKnockAdjustPool === "function") window.plusKnockAdjustPool();'),
 ]
 
 def parse_tw(path):

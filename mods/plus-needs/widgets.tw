@@ -150,6 +150,7 @@
 	<<set _pnSeen to plusAccidentSpotRoll(_pnFloor)>>
 	<</if>>
 	<<if _pnSeen gt 0>>
+		<<run plusContRepOnAccident(_pnSeen, { floor: !!_pnFloor, which: _pnWhich, absorbed: !!_pnAbsorbed })>>
 		<br><span class="red">
 		<<if _pnSeen is 2>>
 			<<if _pnFloor>>A group of students sees everything. Laughter and shrieks of disgust ring out, and by the end of the day it seems the whole school knows.<<else>>Some students notice straight away. Whispers and sniggers follow you down the corridor, and you know the story will spread.<</if>>
@@ -235,6 +236,8 @@ You grab a quick snack and a glass of water.
 		Times spotted relieving yourself outdoors: <<print _pns.spotted or 0>>
 		<br>
 		Continence: <<print plusContinenceNames[plusContinenceLevel()]>> (level $plusContinence / 6), progress <<print Math.trunc($plusContinenceXP)>> / 600 (level down at -600)
+		<br>
+		Continence reputation: <<print plusContRepLabel()>> (<<print Math.trunc($plusContRep)>> / 1000)
 		<br>
 		Accidents (wet/soiled/both at once): _pns.accWet/_pns.accSoiled/_pns.accBoth
 		<br>
@@ -736,3 +739,26 @@ You take off your used _pnName, wrap it up and drop it in the bin. You feel clea
 	<</if>>
 	<<getouticon>><<link [[Leave|$plusRestroomReturn]]>><<endevent>><<set $eventskip to 1>><</link>>
 <</if>>
+
+
+:: Widgets Plus Needs Continence Reputation [widget plusneeds]
+<<widget "plusContRepFame">>
+	<<run plusContRepInit()>>
+	<<silently>>
+		<<set _plusContRepTextConfig = {
+			currentValue: $plusContRep,
+			preText: 'Continence:',
+			states: [
+				{ requiredValue: 0, color: 'green', description: ' Unknown' },
+				{ requiredValue: 30, color: 'teal', description: ' Obscure' },
+				{ requiredValue: 100, color: 'lblue', description: ' Low-key' },
+				{ requiredValue: 200, color: 'blue', description: ' Known' },
+				{ requiredValue: 400, color: 'purple', description: ' Recognised' },
+				{ requiredValue: 600, color: 'pink', description: ' Famous' },
+				{ requiredValue: 1000, color: 'red', description: ' Notorious' }
+			]
+		}>>
+		<<set _plusContRepBoxConfig = { description : '<<relation-text _plusContRepTextConfig>>' }>>
+	<</silently>>
+	<<relation-box-simple _plusContRepBoxConfig>>
+<</widget>>
