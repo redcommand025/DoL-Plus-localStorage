@@ -67,6 +67,9 @@
 	<<if $plusThirst lte 0>>
 		<span class="red">Your head pounds from thirst.</span>
 	<</if>>
+	<<if $plusFlat.rented>>
+		<span class="teal"><<print plusFlatStatusLine()>></span>
+	<</if>>
 	<<set _pnVis to plusDiaperVisibility()>>
 	<<if _pnVis.visible>>
 		<<if _pnVis.conceal lt 0>><span class="red">Nothing covers your diaper. Anyone can see it.</span><<else>><span class="purple">Your diaper is visible under your clothes.</span><</if>>
@@ -210,6 +213,7 @@ You grab a quick snack and a glass of water.
 	<<if Number.isFinite($plusThirst)>><<plusNeedsMobileStat "Th" "Thirst" $plusThirst>><</if>>
 	<<if Number.isFinite($plusBladder)>><<plusNeedsMobileStat "Bl" "Bladder" $plusBladder>><</if>>
 	<<if Number.isFinite($plusBowels)>><<plusNeedsMobileStat "Bw" "Bowels" $plusBowels>><</if>>
+	<<if $plusFlat.rented>><div class="teal"><<print plusFlatStatusLine()>></div><</if>>
 <</widget>>
 
 :: Widgets Plus Needs Statistics [widget plusneeds]
@@ -763,3 +767,236 @@ You take off your used _pnName, wrap it up and drop it in the bin. You feel clea
 	<</silently>>
 	<<relation-box-simple _plusContRepBoxConfig>>
 <</widget>>
+
+:: Widgets Plus Flat [widget plusneeds]
+<<widget "plusFlatSocial">>
+	<<if $plusFlat.rented>>
+		<div class="relation-box">
+			<div class="relation-description"><span class="teal"><<print plusFlatStatusLine()>></span></div>
+		</div>
+	<</if>>
+<</widget>>
+
+<<widget "plusFlatStreetLinks">>
+	<<if $plusFlat.rented>>
+		<<homeicon>><<link [[Your flat (0:01)|Plus Flat Bedroom]]>><<pass 1>><</link>>
+		<br>
+	<<else>>
+		<<homeicon>><<link [[Letting office (0:01)|Plus Flat Letting]]>><<pass 1>><</link>>
+		<br>
+	<</if>>
+<</widget>>
+
+<<widget "plusFlatDomusLink">>
+	<<if $plusFlat.rented>>
+		<<homeicon>><<link [[Your flat (0:10)|Plus Flat Bedroom]]>><<pass 10>><</link>>
+		<br>
+	<</if>>
+<</widget>>
+
+<<widget "plusFlatNotices">>
+	<<if $plusFlat.msg is "remind">>
+		<span class="purple">A reminder note is taped to your door. Rent of £1,500 is due <<print plusFlatDueDateText()>>. Have the money ready in the next few days.</span>
+		<br><br>
+		<<run plusFlatClearMsg()>>
+	<<elseif $plusFlat.msg is "collected" or $plusFlat.msg is "paid">>
+		<span class="green">This month's rent of £1,500 has been paid. The next payment is due <<print plusFlatDueDateText()>>.</span>
+		<br><br>
+		<<run plusFlatClearMsg()>>
+	<<elseif $plusFlat.msg is "grace" or $plusFlat.msg is "unpaid">>
+		<span class="red">You missed the rent of £1,500 due <<print plusFlatDueDateText()>>. The landlord has given you a short grace period to pay before you are evicted.</span>
+		<br><br>
+		<<run plusFlatClearMsg()>>
+	<</if>>
+<</widget>>
+
+
+:: Plus Flat Letting [plusneeds]
+<<set $outside to 0>><<location "flats">><<effects>>
+You step into a small letting office beside the stairwell. A clerk looks up from a folder of papers.
+<br><br>
+<<if $plusFlat.rented>>
+	"You're already down as the tenant of the upstairs flat," the clerk says. "Keys still work. Rent is £1,500 at the end of each month."
+	<br><br>
+	<<homeicon>><<link [[Go to your flat|Plus Flat Bedroom]]>><</link>>
+	<br>
+<<else>>
+	<<if not plusFlatIsWinter()>>
+		"We only let the vacant flat in winter," the clerk says, tapping the calendar. "Tenants move out of town when the weather turns, and that's when a place frees up. Come back then — and bring £3,000 for the down payment."
+		<br><br>
+	<<elseif not plusFlatHasDeposit()>>
+		"There's a one-bedroom flat free on an upper floor," the clerk says. "It's quiet, and you'd have your own bathroom. I need £3,000 as a down payment, then £1,500 at the end of each month."
+		<br><br>
+		You count what you have. It isn't enough. You need <<printmoney 300000 "pink">> to sign, and you only have <<printmoney $money>>.
+		<br><br>
+	<<else>>
+		"There's a one-bedroom flat free on an upper floor," the clerk says. "It's quiet, and you'd have your own bathroom. I need £3,000 as a down payment, then £1,500 at the end of each month."
+		<br><br>
+		The keys sit on the desk. If you sign, this would be your home instead of the orphanage.
+		<br><br>
+		<<link [[Sign the lease (£3,000)|Plus Flat Sign]]>><</link>>
+		<br>
+	<</if>>
+<</if>>
+<<getouticon>><<link [[Leave|Flats]]>><</link>>
+<br>
+
+
+:: Plus Flat Sign [plusneeds]
+<<set $outside to 0>><<location "flats">><<effects>>
+<<set _flatSign to plusFlatCanSign()>>
+<<if _flatSign.ok>>
+	<<run plusFlatSign()>>
+	You count out the down payment. The clerk writes your name against a first-floor flat, then slides a pair of keys across the desk.
+	<br><br>
+	"Rent is £1,500, due at the end of each month. Don't be late."
+	<br><br>
+	The orphanage is no longer your home. You have a door that is yours, for as long as you keep up the rent.
+	<br><br>
+	<<homeicon>><<link [[Go to your flat|Plus Flat Bedroom]]>><</link>>
+	<br>
+<<else>>
+	The clerk shakes their head. The offer isn't available right now.
+	<br><br>
+	<<link [[Back|Plus Flat Letting]]>><</link>>
+	<br>
+<</if>>
+
+
+:: Plus Flat Bedroom [plusneeds]
+<<if $plusFlat.msg is "evicted" or not $plusFlat.rented>>
+	<<if $plusFlat.msg is "evicted">>
+		<<goto "Plus Flat Evicted">>
+	<<else>>
+		<<goto "Plus Flat Letting">>
+	<</if>>
+<<else>>
+<<set $outside to 0>><<set $location to "flat">><<set $bus to "plus_flat">><<location "flats">><<effects>>
+You are in your rented flat, a modest one-bedroom on an upper floor of the Barb Street block. The walls are plain and recently painted. A narrow window looks out over the canal. The bed is made, and a wardrobe stands against the far wall. A bathroom opens off to one side.
+<br><br>
+<<plusFlatNotices>>
+<<print plusFlatStatusLine()>>
+<br><br>
+<<bedicon>><<link [[Get in bed|Plus Flat Bed]]>><</link>>
+<br>
+<<link [[Wardrobe|Plus Flat Wardrobe]]>><<set $wardrobe_location to "wardrobe">><</link>>
+<br>
+<<bathroomicon>><<link [[Bathroom (0:01)|Plus Flat Bathroom]]>><<pass 1>><</link>>
+<br>
+<<mirroricon>><<link [[Mirror|Plus Flat Mirror]]>><<preMirror>><</link>>
+<br>
+<<if plusFlatCanPay()>>
+	<<link [[Pay this month's rent (£1,500)|Plus Flat Pay]]>><</link>>
+	<br>
+<</if>>
+<<link [[End the lease and return to the orphanage|Plus Flat Move Out]]>><</link>>
+<br>
+<<getouticon>><<link [[Leave (0:01)|Flats]]>><<pass 1>><</link>>
+<br>
+<</if>>
+
+
+:: Plus Flat Bed [plusneeds]
+<<effects>>
+<<wearoutfit>>
+You settle under the covers in your own bed. The building is quieter than the orphanage at night.
+<br><br>
+<<generateSleepLinks "Plus Flat Sleep">>
+<<link [[Climb out of bed|Plus Flat Bedroom]]>><<storeon "bed">><<set $wardrobe_location to "wardrobe">><<loadTempHairStyle>><<endevent>><</link>>
+<br>
+
+
+:: Plus Flat Sleep [plusneeds]
+<<set _autosavehere to true>>
+<<sleep>>
+<<effects>>
+<<wakingEffects $sleepHoursTotal>>
+<<sleepeffects>>
+<<if !$plusFlat.rented and $plusFlat.msg is "evicted">>
+	You wake to a knock and the sound of keys in the lock.
+	<br><br>
+	<<link [[Next|Plus Flat Evicted]]>><</link>>
+	<br>
+<<else>>
+	You sleep in your own bed and wake in the rented flat.
+	<br><br>
+	<<link [[Get up|Plus Flat Bedroom]]>><<set $wardrobe_location to "wardrobe">><<loadTempHairStyle>><</link>>
+	<br>
+<</if>>
+
+
+:: Plus Flat Bathroom [plusneeds]
+<<set $outside to 0>><<set $location to "flat">><<set $bus to "plus_flat">><<effects>>
+You are in your bathroom. The fittings are plain but clean: a toilet, a shower over the bath, and a small mirror above the sink.
+<br><br>
+<<bathroomicon "bath">><<link [[Have a bath or shower (0:30)|Plus Flat Wash]]>><<pass 30>><<stress -6>><<set $hygiene to 0>><</link>><<lstress>>
+<br>
+<<personalUpkeep>>
+<<plusToiletLink>>
+<br>
+<<bedicon>><<link [[Bedroom (0:01)|Plus Flat Bedroom]]>><<pass 1>><</link>>
+<br>
+
+
+:: Plus Flat Wash [plusneeds]
+<<effects>>
+You run the water and wash in the privacy of your own bathroom. Afterwards you feel cleaner and a little less tense.
+<br><br>
+<<link [[Next|Plus Flat Bathroom]]>><</link>>
+<br>
+
+
+:: Plus Flat Wardrobe [plusneeds]
+<<effects>>
+<<set $wardrobe_location to "wardrobe">>
+<<wardrobeSelection>>
+You look in your wardrobe.
+<br><br>
+<<plusClothesLines>><<plusCleanLink>><<plusDiaperChangeLink>><br>
+<div id="wardrobewear"><<wardrobewear>></div>
+<div id="wardrobeExits"><<wardrobeExits>></div>
+<<wardrobe>>
+
+
+:: Plus Flat Mirror [plusneeds]
+<<effects>>
+<<bedicon>><<link [[Step away|Plus Flat Bedroom]]>><<unset $mirrorMenu>><<unset $bodywritingSet>><<postMirror>><</link>>
+<br>
+<<mirror>>
+<br><br>
+
+
+:: Plus Flat Pay [plusneeds]
+<<effects>>
+<<if not plusFlatCanPay()>>
+	You cannot pay the rent right now.
+	<br><br>
+<<else>>
+	<<run plusFlatPayRent()>>
+	You count out £1,500 and leave it for the landlord. The next payment will be due <<print plusFlatDueDateText()>>.
+	<br><br>
+<</if>>
+<<link [[Next|Plus Flat Bedroom]]>><</link>>
+<br>
+
+
+:: Plus Flat Move Out [plusneeds]
+<<effects>>
+You pack what you need and take the keys back to the letting office. The clerk notes that the lease is ended. The flat is no longer yours.
+<br><br>
+<<run plusFlatMoveOut()>>
+You walk back to Domus Street. The orphanage is your home again, and Bailey will expect the usual weekly payment in due course.
+<br><br>
+<<link [[Return to your old bedroom|Bedroom]]>><</link>>
+<br>
+
+
+:: Plus Flat Evicted [plusneeds]
+<<effects>>
+The landlord has had enough of unpaid rent. The locks are changed, and you are told to gather your things.
+<br><br>
+<<run plusFlatEvict()>>
+You carry what you can back to the orphanage. Your old bedroom is waiting, and Bailey's weekly payments will start again.
+<br><br>
+<<link [[Return to your old bedroom|Bedroom]]>><</link>>
+<br>

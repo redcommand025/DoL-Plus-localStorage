@@ -57,6 +57,7 @@ window.plusNowTs = function () {
 		for (const k of Object.keys(RATE)) {
 			if (!Number.isFinite(V.plusNeedsDrift[k])) V.plusNeedsDrift[k] = 1;
 		}
+		if (!V.plusFlat || typeof V.plusFlat !== "object") V.plusFlat = { rented: false };
 	}
 	window.plusNeedsInit = init;
 
@@ -127,6 +128,7 @@ window.plusNowTs = function () {
 		if (!V || V.intro || !Number.isFinite(minutes) || minutes <= 0) return;
 		init();
 		try { if (typeof window.plusContRepDecay === "function") window.plusContRepDecay(); } catch (e) {}
+		try { if (typeof window.plusFlatOnTick === "function") window.plusFlatOnTick(); } catch (e) {}
 		const longPass = Math.max(minutes, window.plusNeedsPassTotal || 0) >= LONG_PASS;
 		
 		const loss = {};
@@ -2155,4 +2157,217 @@ window.plusNowTs = function () {
 			console.warn("plusSwellRender", e);
 		}
 	});
+})();
+/* Rented flat on Barb Street: winter letting, monthly rent, Bailey pause. */
+(function () {
+	"use strict";
+	const DEPOSIT = 300000; // £3,000 in pence
+	const RENT = 150000; // £1,500 in pence
+	const REMIND_DAYS = 3;
+	const GRACE_DAYS = 3;
+	window.plusFlatDeposit = DEPOSIT;
+	window.plusFlatRent = RENT;
+	window.plusFlatGraceDays = GRACE_DAYS;
+	window.plusFlatRemindDays = REMIND_DAYS;
+
+	function V() {
+		return State.variables;
+	}
+	function flat() {
+		const vars = V();
+		if (!vars.plusFlat || typeof vars.plusFlat !== "object") vars.plusFlat = { rented: false };
+		return vars.plusFlat;
+	}
+	function period(y, m) {
+		return (Number(y) || 0) * 12 + (Number(m) || 0);
+	}
+	function nowPeriod() {
+		return period(Time.year, Time.month);
+	}
+	function daysInMonth(y, m) {
+		try {
+			return DateTime.getDaysOfMonthFromYear(y)[m - 1];
+		} catch (e) {
+			return [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1] || 30;
+		}
+	}
+	function advanceDue(f) {
+		f.dueM = (f.dueM || Time.month) + 1;
+		if (f.dueM > 12) {
+			f.dueM = 1;
+			f.dueY = (f.dueY || Time.year) + 1;
+		}
+	}
+	function charge(amount, source) {
+		if (typeof money === "function") money(-amount, source);
+		else V().money -= amount;
+	}
+	function spendOk(amount) {
+		return (V().money || 0) >= amount;
+	}
+
+	window.plusFlatIsWinter = function () {
+		try {
+			return Time.season === "winter";
+		} catch (e) {
+			return false;
+		}
+	};
+	window.plusFlatHasDeposit = function () {
+		return spendOk(DEPOSIT);
+	};
+	window.plusFlatRented = function () {
+		return !!(flat().rented);
+	};
+	window.plusFlatCanSign = function () {
+		if (flat().rented) return { ok: false, reason: "rented" };
+		if (!window.plusFlatIsWinter()) return { ok: false, reason: "winter" };
+		if (!window.plusFlatHasDeposit()) return { ok: false, reason: "money" };
+		return { ok: true };
+	};
+	window.plusFlatDueDateText = function () {
+		const f = flat();
+		if (!f.rented || !f.dueY || !f.dueM) return "";
+		const day = daysInMonth(f.dueY, f.dueM);
+		try {
+			const d = new DateTime(f.dueY, f.dueM, day);
+			if (typeof window.getFormattedDate === "function") return window.getFormattedDate(d, false);
+			return d.monthName + " " + day;
+		} catch (e) {
+			return day + " / " + f.dueM;
+		}
+	};
+	window.plusFlatStatusLine = function () {
+		const f = flat();
+		if (!f.rented) return "";
+		const due = window.plusFlatDueDateText();
+		if ((f.grace || 0) > 0 || (nowPeriod() > period(f.dueY, f.dueM))) {
+			return "Home: Flat (rent £1,500 due " + due + " — overdue)";
+		}
+		return "Home: Flat (rent £1,500 due " + due + ")";
+	};
+	window.plusFlatCanPay = function () {
+		const f = flat();
+		if (!f.rented) return false;
+		if (!spendOk(RENT)) return false;
+		return nowPeriod() >= period(f.dueY, f.dueM);
+	};
+	window.plusFlatPayRent = function () {
+		const f = flat();
+		if (!f.rented) return { ok: false, reason: "rented" };
+		if (!spendOk(RENT)) return { ok: false, reason: "money" };
+		if (nowPeriod() < period(f.dueY, f.dueM)) return { ok: false, reason: "early" };
+		charge(RENT, "plusFlatRent");
+		advanceDue(f);
+		f.grace = 0;
+		f.last = "paid";
+		f.msg = "paid";
+		return { ok: true };
+	};
+	window.plusFlatPauseBailey = function () {
+		const vars = V();
+		if (flat().rented && Number.isFinite(vars.renttime) && vars.renttime < 7) vars.renttime = 7;
+	};
+	window.plusFlatSign = function () {
+		const check = window.plusFlatCanSign();
+		if (!check.ok) return check;
+		charge(DEPOSIT, "plusFlatDeposit");
+		const f = flat();
+		f.rented = true;
+		f.grace = 0;
+		f.dueY = Time.year;
+		f.dueM = Time.month;
+		try {
+			if (Time.date && typeof Time.date.isLastDayOfMonth === "function" && Time.date.isLastDayOfMonth()) advanceDue(f);
+		} catch (e) {}
+		f.last = "signed";
+		f.msg = "signed";
+		try {
+			f.processDay = window.plusDayKey();
+		} catch (e) {}
+		const vars = V();
+		vars.renttime = 7;
+		return { ok: true };
+	};
+	window.plusFlatMoveOut = function () {
+		const f = flat();
+		f.rented = false;
+		f.grace = 0;
+		f.last = "movedout";
+		f.msg = "movedout";
+		V().renttime = 7;
+		return { ok: true };
+	};
+	window.plusFlatEvict = function () {
+		const f = flat();
+		f.rented = false;
+		f.grace = 0;
+		f.last = "evicted";
+		f.msg = "evicted";
+		V().renttime = 7;
+		return { ok: true };
+	};
+	window.plusFlatTryCollect = function () {
+		if (!spendOk(RENT)) return false;
+		charge(RENT, "plusFlatRent");
+		advanceDue(flat());
+		const f = flat();
+		f.grace = 0;
+		f.last = "collected";
+		f.msg = "collected";
+		return true;
+	};
+	window.plusFlatDaily = function () {
+		const f = flat();
+		if (!f.rented) return f.last || null;
+		window.plusFlatPauseBailey();
+		const dueP = period(f.dueY, f.dueM);
+		const nowP = nowPeriod();
+		const lastDay = daysInMonth(Time.year, Time.month);
+		const day = Time.monthDay;
+		if (nowP < dueP) {
+			f.grace = 0;
+			return f.last || null;
+		}
+		if (nowP === dueP) {
+			f.grace = 0;
+			if (day >= lastDay - REMIND_DAYS && day < lastDay) {
+				f.last = "remind";
+				f.msg = "remind";
+			}
+			if (day >= lastDay) {
+				if (!window.plusFlatTryCollect()) {
+					f.last = "unpaid";
+					f.msg = "grace";
+				}
+			}
+			return f.last || null;
+		}
+		// Past the due month: grace period, then eviction.
+		if (window.plusFlatTryCollect()) return f.last;
+		f.grace = (f.grace || 0) + 1;
+		f.last = "grace";
+		f.msg = "grace";
+		if (f.grace > GRACE_DAYS) window.plusFlatEvict();
+		return f.last;
+	};
+	window.plusFlatOnTick = function () {
+		const f = flat();
+		if (!f.rented) return;
+		window.plusFlatPauseBailey();
+		let day;
+		try {
+			day = window.plusDayKey();
+		} catch (e) {
+			return;
+		}
+		if (f.processDay !== day) {
+			f.processDay = day;
+			window.plusFlatDaily();
+		}
+	};
+	window.plusFlatClearMsg = function () {
+		const f = flat();
+		delete f.msg;
+	};
 })();

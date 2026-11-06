@@ -61,7 +61,11 @@ EDITS.append(("Pharmacy", "before", "Looking at the items on the shelves, you no
 EDITS.append(("Clothing Shop", "after", '<div id="clothingShop-div" class="main-shop-div">', '<<plusDiaperShop "clothing">>'))
 EDITS.append(("Adult Shop Store", "after", '<div id="clothingShop-div" class="main-shop-div">', '<<plusDiaperShop "adult">>'))
 EDITS.append(("Characteristics", "before", '<</widget>>\n\n<<widget "heatRutDisplay">>', "\n<<plusDiaperInsecurity>>\n"))
-EDITS.append(("Social", "after", "<<relation-box-simple _overallFameBoxConfig>>", "\n\t\t\t<<plusContRepFame>>"))
+EDITS.append(("Social", "after", "<<relation-box-simple _overallFameBoxConfig>>", "\n\t\t\t<<plusContRepFame>>\n\t\t\t<<plusFlatSocial>>"))
+
+EDITS.append(("Flats", "before", '<<barbicon>><<link [[Leave|Barb Street]]>>', "<<plusFlatStreetLinks>>"))
+EDITS.append(("Domus Street", "after", '<<homeicon>><<link [[Go home (0:01)|Orphanage]]>><<pass 1>><</link>>', "\n\t\t\t<<plusFlatDomusLink>>"))
+EDITS.append(("Widgets Wardrobe", "after", '<<switch $passage>>', '\n\t\t<<case "Plus Flat Wardrobe">>\n\t\t\t<<link [[Close wardrobe|Plus Flat Bedroom]]>><<cleanupOnWardrobeExit>><</link>>'))
 EDITS.append(("Widgets Attitudes", "before", "<<if $attitudesControl.unlockProstitution>>", "<<plusDiaperAttitudes>>"))
 EDITS.append(("Widgets Attitudes", "after",
               'V.attitudesControl.unlockExhibitionismUnderwear = V.exhibitionism >= 35;',
