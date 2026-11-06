@@ -108,7 +108,8 @@
 		Nothing shows through your clothes.<<if plusDiaperPeeFull(_pnDiaper) and plusDiaperPoopFull(_pnDiaper)>> It feels completely full now.<<elseif plusDiaperPeeFull(_pnDiaper)>> It feels soaked through now. It won't hold any more pee.<<elseif plusDiaperPoopFull(_pnDiaper)>> It feels heavy and full now. It won't hold any more mess.<</if>>
 	</span>
 	<br>Your cheeks warm a little<<if plusDiaperDef(_pnDiaper).cloth>>, and the cloth will need washing<<else>>, and you should change it soon<</if>>.
-	<<stress 6>><<gstress>><<set $hygiene to Math.clamp($hygiene + 200, 0, 2000)>>
+	<<run plusDiaperExposure()>>
+	<<if plusDiaperStressApplies("use")>><<stress 6>><<gstress>><</if>><<set $hygiene to Math.clamp($hygiene + 200, 0, 2000)>>
 	<<set _pnSeen to plusAccidentSpotRoll(false, 0.5)>>
 	<<else>>
 	<<if _pnDiaper>><span class="red">Your _pnDiaper.name <<if _pnLeak is "plusBladder">>can't hold any more pee<<elseif _pnLeak is "plusBowels">>can't hold any more mess<<else>>can't hold any more<</if>>. It leaks<<if _pnLeak isnot _pnWhich or _plusLeakFrac lt 0.999>>, though it holds <<if _plusLeakFrac lt 0.5>>most of it<<else>>some of it<</if>><</if>>.</span><br><<set _pnWhich to _pnLeak>><</if>>
@@ -144,6 +145,7 @@
 		<</if>>
 	<</if>>
 	Your face burns with embarrassment<<if _pnULwet or _pnLwet>>, and your clothes will need a good wash<<elseif _pnFloor>>, and you hurry away from the _pnGround before anyone can connect it to you<</if>>.
+	<<if _pnDiaper>><<run plusDiaperExposure()>><</if>>
 	<<stress 12>><<gstress>><<set $hygiene to Math.clamp($hygiene + 400, 0, 2000)>>
 	<<set _pnSeen to plusAccidentSpotRoll(_pnFloor)>>
 	<</if>>
@@ -159,7 +161,9 @@
 			<<print either("Someone nearby notices what happened. They wrinkle their nose and look away.", "A passer-by glances at your clothes and their expression turns to pity and disgust.", "You catch someone staring at you, then whispering to their friend.")>>
 		<</if>>
 		</span>
-		<<if _pnFloor>><<stress 15>><<else>><<stress 10>><</if>><<gstress>>
+		<<if !_pnDiaper or plusDiaperStressApplies("use")>>
+			<<if _pnFloor>><<stress 15>><<else>><<stress 10>><</if>><<gstress>>
+		<</if>>
 		<<if _pnSeen is 2>><<status -5>><<lcool>><</if>>
 	<</if>>
 <</widget>>
@@ -365,7 +369,7 @@ You feel refreshed.
 		"Someone nearby sniffs and glances around, frowning. You hope they can't tell where the faint smell is coming from.",
 		"A passer-by wrinkles their nose slightly as they walk past you. There's a faint whiff in the air.",
 		"You catch someone sniffing the air near you, then shrugging. The smell is faint, but it's there.")>>
-	<span class="purple">_pnSmell</span> <<stress 3>><<gstress>>
+	<span class="purple">_pnSmell</span> <<if !plusDiaperWorn() or plusDiaperStressApplies("use")>><<run plusDiaperExposure()>><<stress 3>><<gstress>><<elseif plusDiaperWorn()>><<run plusDiaperExposure()>><</if>>
 	<<else>>
 	<<set _pnSmell to either(
 		"Someone nearby wrinkles their nose and steps away from you. The smell coming from you is unmistakable.",
@@ -373,7 +377,7 @@ You feel refreshed.
 		"You hear someone mutter about a horrible smell. Heads turn towards you, and you feel your cheeks burn.",
 		"A couple of people glance at you and pull faces, covering their noses as they hurry past.",
 		"Someone loudly asks what that stink is. You know exactly what it is, and so does everyone looking at you.")>>
-	<span class="pink">_pnSmell</span> <<stress 6>><<gstress>>
+	<span class="pink">_pnSmell</span> <<if !plusDiaperWorn() or plusDiaperStressApplies("use")>><<run plusDiaperExposure()>><<stress 6>><<gstress>><<elseif plusDiaperWorn()>><<run plusDiaperExposure()>><</if>>
 	<</if>>
 <</widget>>
 
@@ -633,3 +637,44 @@ You take off your used _pnName, wrap it up and drop it in the bin. You feel clea
 <</if>>
 <br><br>
 <<getouticon>><<link [[Continue|$plusBuyReturn]]>><<set $eventskip to 1>><</link>>
+
+
+:: Widgets Plus Needs Attitudes [widget plusneeds]
+<<widget "plusDiaperInsecurity">>
+	<<run plusDiaperInitInsecurity()>>
+	<<if insecurityExists("diaper")>>
+		<span class="red">Insecurity: Diaper</span>
+		<div class="meter">
+			<<set _percent to Math.floor(($insecurity_diaper / 1000) * 100)>>
+			<<print '<div class="redbar" style="width:' + _percent + '%"></div>'>>
+		</div>
+		<<if $acceptance_diaper gte 1>>
+			<span class="green">Acceptance: Diaper</span>
+			<div class="meter">
+				<<set _percent to Math.floor(($acceptance_diaper / 1000) * 100)>>
+				<<print '<div class="greenbar" style="width:' + _percent + '%"></div>'>>
+			</div>
+		<</if>>
+	<</if>>
+<</widget>>
+
+<<widget "plusDiaperAttitudes">>
+	<<run plusDiaperInitInsecurity()>>
+	<<set _plusUnlockDiaper to plusDiaperUnlockAttitudes()>>
+	<<if _plusUnlockDiaper or $uncomfortable.diaperSeen is false>>
+		<label><<checkbox "$uncomfortable.diaperSeen" false true autocheck>> I'm uncomfortable having my diaper seen</label>
+	<<else>>
+		<input type="checkbox" checked disabled /> <span class="black">I'm uncomfortable having my diaper seen</span>
+		<br>
+		<span class="blue small-description"><i>Requires higher exhibitionism or diaper acceptance.</i></span>
+	<</if>>
+	<br>
+	<<if _plusUnlockDiaper or $uncomfortable.diaperUse is false>>
+		<label><<checkbox "$uncomfortable.diaperUse" false true autocheck>> I'm uncomfortable peeing and messing in my diaper near others</label>
+	<<else>>
+		<input type="checkbox" checked disabled /> <span class="black">I'm uncomfortable peeing and messing in my diaper near others</span>
+		<br>
+		<span class="blue small-description"><i>Requires higher exhibitionism or diaper acceptance.</i></span>
+	<</if>>
+	<br>
+<</widget>>

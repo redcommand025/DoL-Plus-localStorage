@@ -59,6 +59,12 @@ EDITS.append(("Widgets modUpdate", "after",
               '\n\n\t<<if $background.incontinent is undefined>>\n\t\t<<set $background.incontinent to false>>\n\t<</if>>'))
 EDITS.append(("Pharmacy", "before", "Looking at the items on the shelves, you notice a few objects of interest.", "<<plusDiaperShop>>"))
 EDITS.append(("Clothing Shop", "after", '<div id="clothingShop-div" class="main-shop-div">', "<<plusDiaperShop>>"))
+EDITS.append(("Characteristics", "before", '<</widget>>\n\n<<widget "heatRutDisplay">>', "\n<<plusDiaperInsecurity>>\n"))
+EDITS.append(("Widgets Attitudes", "before", "<<if $attitudesControl.unlockProstitution>>", "<<plusDiaperAttitudes>>"))
+EDITS.append(("Widgets Attitudes", "after",
+              'V.attitudesControl.unlockExhibitionismUnderwear = V.exhibitionism >= 35;',
+              '\n\t\tV.attitudesControl.unlockDiaperSeen = typeof window.plusDiaperUnlockAttitudes === "function" && window.plusDiaperUnlockAttitudes();\n\t\tV.attitudesControl.unlockDiaperUse = V.attitudesControl.unlockDiaperSeen;'))
+
 EDITS.append(("Widgets variablesStart2", "after",
               '<<set _backgroundOptions to ["waif","nerd","athlete","delinquent","promiscuous","exhibitionist","deviant","beautiful","lustful","plantlover"]>>',
               '<<run _backgroundOptions.push("incontinent")>>'))
@@ -148,6 +154,13 @@ def main():
     bg_anchor = '"plantlover"],\n\t\t\t\t\tdisplayName: "Background:"'
     assert s.count(bg_anchor) == 1, bg_anchor
     s = s.replace(bg_anchor, '"plantlover"' + mark(', "incontinent"') + '],\n\t\t\t\t\tdisplayName: "Background:"', 1)
+    inc_types = '["penis_small", "penis_big", "breasts_small", "breasts_big", "pregnancy"]'
+    assert s.count(inc_types) == 2, inc_types
+    s = s.replace(inc_types, '["penis_small", "penis_big", "breasts_small", "breasts_big", "pregnancy"' + mark(', "diaper"') + ']')
+    inc_cond = 'pregnancy: playerBellySize() >= 8,\n\t\t\t}[type] && V["acceptance_" + type] < 1000,'
+    assert s.count(inc_cond) == 1, inc_cond
+    s = s.replace(inc_cond, 'pregnancy: playerBellySize() >= 8,' + mark('\n\t\t\t\tdiaper: typeof window.plusDiaperInsecurityPossible === "function" && window.plusDiaperInsecurityPossible(),') + '\n\t\t\t}[type] && V["acceptance_" + type] < 1000,', 1)
+
     # 3. remove old mod passages
     s = re.sub(r'<tw-passagedata[^>]*tags="[^"]*plusneeds[^"]*"[^>]*>.*?</tw-passagedata>', "", s, flags=re.S)
     # 4. passage edits

@@ -44,6 +44,11 @@ window.plusNowTs = function () {
 		}
 		if (!Number.isFinite(V.plusContinence)) V.plusContinence = 3;
 		if (!Number.isFinite(V.plusContinenceXP)) V.plusContinenceXP = 0;
+		if (!Number.isFinite(V.insecurity_diaper)) V.insecurity_diaper = 0;
+		if (!Number.isFinite(V.acceptance_diaper)) V.acceptance_diaper = 0;
+		if (!V.uncomfortable || typeof V.uncomfortable !== "object") V.uncomfortable = {};
+		if (V.uncomfortable.diaperSeen === undefined) V.uncomfortable.diaperSeen = true;
+		if (V.uncomfortable.diaperUse === undefined) V.uncomfortable.diaperUse = true;
 		if (!V.plusNeedsDrift || typeof V.plusNeedsDrift !== "object") V.plusNeedsDrift = {};
 		for (const k of Object.keys(RATE)) {
 			if (!Number.isFinite(V.plusNeedsDrift[k])) V.plusNeedsDrift[k] = 1;
@@ -353,6 +358,10 @@ window.plusNowTs = function () {
 		} else if (V.plusNightProtect) {
 			html += (html ? " " : "") + `<span class="lblue">You leaked in your sleep, but your diaper kept the bed dry.</span>`;
 			delete V.plusNightProtect;
+		}
+		if (V.plusDiaperAcceptanceNote) {
+			html += (html ? " " : "") + `<span class="green">You realise you no longer mind people knowing you wear a diaper. You've gained the Acceptance: Diaper trait.</span>`;
+			delete V.plusDiaperAcceptanceNote;
 		}
 		let supply = "";
 		try { supply = window.plusSupplyWarn && window.plusSupplyWarn(); } catch (e) { console.warn(e); }
@@ -1409,12 +1418,79 @@ window.plusNowTs = function () {
 		else V.money -= info.price;
 		return { ok: true, ...info };
 	};
+	/* Diaper insecurity / acceptance: same 0-1000 scale as the base game.
+	 * Acceptance at 1000 removes the stress penalty (bullying/notices can still happen).
+	 * Attitudes $uncomfortable.diaperSeen / diaperUse default on; unchecking them also removes that source of stress. */
+	const DIAPER_ACCEPT_MAX = 1000;
+	window.plusDiaperAcceptMax = DIAPER_ACCEPT_MAX;
+	window.plusDiaperInitInsecurity = function () {
+		const V = State.variables;
+		if (!V) return;
+		if (!Number.isFinite(V.insecurity_diaper)) V.insecurity_diaper = 0;
+		if (!Number.isFinite(V.acceptance_diaper)) V.acceptance_diaper = 0;
+		if (!V.uncomfortable || typeof V.uncomfortable !== "object") V.uncomfortable = {};
+		if (V.uncomfortable.diaperSeen === undefined) V.uncomfortable.diaperSeen = true;
+		if (V.uncomfortable.diaperUse === undefined) V.uncomfortable.diaperUse = true;
+	};
+	window.plusDiaperInsecurityPossible = function () {
+		const V = State.variables;
+		if (!V) return false;
+		window.plusDiaperInitInsecurity();
+		if ((V.acceptance_diaper || 0) >= DIAPER_ACCEPT_MAX) return false;
+		return !!(window.plusDiaperWorn && window.plusDiaperWorn())
+			|| (V.insecurity_diaper > 0)
+			|| (V.acceptance_diaper > 0)
+			|| !!(V.background && V.background.incontinent);
+	};
+	window.plusDiaperAccepted = function () {
+		const V = State.variables;
+		return !!V && (V.acceptance_diaper || 0) >= DIAPER_ACCEPT_MAX;
+	};
+	window.plusDiaperUnlockAttitudes = function () {
+		const V = State.variables;
+		if (V && Number.isFinite(V.exhibitionism) && V.exhibitionism >= 35) return true; // exhibitionism level 3
+		return window.plusDiaperAccepted();
+	};
+	/* kind: "seen" (visible diaper noticed) or "use" (accident/use in a diaper spotted, or the smell noticed). */
+	window.plusDiaperStressApplies = function (kind) {
+		const V = State.variables;
+		if (!V) return false;
+		window.plusDiaperInitInsecurity();
+		const on = kind === "seen" ? V.uncomfortable.diaperSeen : V.uncomfortable.diaperUse;
+		if (on === false) return false;
+		if (window.plusDiaperAccepted()) return false;
+		return true;
+	};
+	window.plusDiaperWantsPrivacy = function () {
+		return window.plusDiaperStressApplies("use") && !!(window.plusDiaperWorn && window.plusDiaperWorn());
+	};
+	/* One exposure: +1 insecurity (0-1000) and acceptance like the base macros
+	 * (acceptance -= 1, then += 10 * (ceil(insecurity/200) + 1)). */
+	window.plusDiaperExposure = function () {
+		const V = State.variables;
+		window.plusDiaperInitInsecurity();
+		const before = V.acceptance_diaper || 0;
+		if (before >= DIAPER_ACCEPT_MAX) return { accepted: true, gained: false, acceptance: before, insecurity: V.insecurity_diaper };
+		V.insecurity_diaper = Math.clamp((V.insecurity_diaper || 0) + 1, 0, 1000);
+		V.acceptance_diaper = Math.clamp((V.acceptance_diaper || 0) - 1, 0, 1000);
+		const mod = Math.ceil(V.insecurity_diaper / 200) + 1;
+		V.acceptance_diaper = Math.clamp(V.acceptance_diaper + 10 * mod, 0, 1000);
+		const gained = before < DIAPER_ACCEPT_MAX && V.acceptance_diaper >= DIAPER_ACCEPT_MAX;
+		if (gained) {
+			V.plusDiaperAcceptanceNote = 1;
+			try { if (State.temporary) State.temporary.acceptanceAchieved = "diaper"; } catch (e) {}
+		}
+		return { accepted: V.acceptance_diaper >= DIAPER_ACCEPT_MAX, gained, acceptance: V.acceptance_diaper, insecurity: V.insecurity_diaper };
+	};
 	/* "Incontinent" background: Leaky continence, a pull-up worn instead of underwear and 5 spares in the wardrobe. */
 	window.plusIncontinentStart = function () {
 		const V = State.variables;
 		if (!V.background || V.background.incontinent !== true) return false;
 		V.plusContinence = 0;
 		V.plusContinenceXP = 0;
+		window.plusDiaperInitInsecurity();
+		V.acceptance_diaper = Math.max(V.acceptance_diaper || 0, Math.round(window.plusDiaperAcceptMax * 0.5));
+		if (!(V.insecurity_diaper > 0)) V.insecurity_diaper = 1;
 		const idx = setup.clothes.under_lower.findIndex(c => c.name === "pull-up (Medium)");
 		if (idx < 0) return false;
 		const fresh = () => {
@@ -1554,7 +1630,11 @@ window.plusNowTs = function () {
 		V.plusDiaperSeenNext = now + NOTICE_COOLDOWN;
 		const S = V.plusNeedsStats || (V.plusNeedsStats = {});
 		S.diaperNoticed = (S.diaperNoticed || 0) + 1;
-		if (Number.isFinite(V.stress)) V.stress = Math.min(Number.isFinite(V.stressmax) ? V.stressmax : 10000, V.stress + NOTICE_STRESS);
+		try { window.plusDiaperExposure(); } catch (e) {}
+		if (window.plusDiaperStressApplies("seen") && Number.isFinite(V.stress)) {
+			V.stress = Math.min(Number.isFinite(V.stressmax) ? V.stressmax : 10000, V.stress + NOTICE_STRESS);
+			V.plusDiaperSeenStressed = 1;
+		}
 		const school = window.plusIsSchool(title);
 		if (school) window.plusSchoolBullyBump();
 		V.plusDiaperSeen = school ? 2 : 1;
@@ -1643,8 +1723,9 @@ window.plusNowTs = function () {
 				if (m) out.push(`<span class="purple">${m}</span>`);
 			}
 			if (V.plusDiaperSeen) {
-				out.push(`<span class="red">${window.plusDiaperSeenText(V.plusDiaperSeen)}</span> You feel stressed.`);
+				out.push(`<span class="red">${window.plusDiaperSeenText(V.plusDiaperSeen)}</span>${V.plusDiaperSeenStressed ? " You feel stressed." : ""}`);
 				delete V.plusDiaperSeen;
+				delete V.plusDiaperSeenStressed;
 			}
 			if (!out.length) return;
 			const div = document.createElement("div");
