@@ -161,6 +161,28 @@ def main():
     assert s.count(inc_cond) == 1, inc_cond
     s = s.replace(inc_cond, 'pregnancy: playerBellySize() >= 8,' + mark('\n\t\t\t\tdiaper: typeof window.plusDiaperInsecurityPossible === "function" && window.plusDiaperInsecurityPossible(),') + '\n\t\t\t}[type] && V["acceptance_" + type] < 1000,', 1)
 
+    # House-knock restrooms: after each "Ask for work" option in Domus/Danube/Flats knock passages.
+    RESTROOM_HOUSES = (
+        ("Domus House Knock", "Domus Street"),
+        ("Danube House Knock", "Danube Street"),
+        ("Flats Knock", "Flats"),
+        ("Flats Knock Intro", "Flats"),
+    )
+    ask_rx = re.compile(
+        r'(&lt;&lt;socialiseicon &quot;ask&quot;&gt;&gt;&lt;&lt;link \[\[Ask for work(?: \([^\]]+\))?\|([^\]]+)\]\]&gt;&gt;(?:&lt;&lt;pass \d+&gt;&gt;)?&lt;&lt;/link&gt;&gt;)'
+    )
+    for rname, street in RESTROOM_HOUSES:
+        rx = re.compile(r'(<tw-passagedata[^>]*name="%s"[^>]*>)(.*?)(</tw-passagedata>)' % re.escape(esc(rname)), re.S)
+        m = rx.search(s)
+        if not m: sys.exit("passage not found: " + rname)
+        body = m.group(2)
+        def _repl(mm, street=street):
+            dest = html.unescape(mm.group(2))
+            return mm.group(1) + esc(mark('\n\t\t<<plusAskRestroomLink "' + street + '" "' + dest + '">>'))
+        body2, n = ask_rx.subn(_repl, body)
+        if n <= 0: sys.exit("no Ask for work links to hook in " + rname)
+        s = s[:m.start(2)] + body2 + s[m.end(2):]
+
     # 3. remove old mod passages
     s = re.sub(r'<tw-passagedata[^>]*tags="[^"]*plusneeds[^"]*"[^>]*>.*?</tw-passagedata>', "", s, flags=re.S)
     # 4. passage edits

@@ -1052,6 +1052,154 @@ window.plusNowTs = function () {
 		}
 		return spotted;
 	};
+
+	/* Ask to use a resident's restroom when knocking for work (Domus / Danube / Flats).
+	 * Self-contained: never enters the base work/danger/sex house chains.
+	 * Chance starts at 55% and is modified by appearance, fame, allure, crime, time of day,
+	 * urgency (pleading), and whether a diaper is visible or they notice a smell.
+	 * Once per house-type (the knock event's usual work destination) per day. */
+	const RESTROOM_BASE = 0.55;
+	const RESTROOM_MIN = 0.08, RESTROOM_MAX = 0.92;
+	const BAD_FAME = ["sex", "prostitution", "rape", "bestiality", "exhibitionism", "impreg"];
+	function restroomDay() {
+		return typeof window.plusDayKey === "function" ? window.plusDayKey() : 0;
+	}
+	function restroomUsedMap() {
+		const V = State.variables;
+		if (!V.plusRestroomUsed || typeof V.plusRestroomUsed !== "object") V.plusRestroomUsed = { day: restroomDay(), keys: {} };
+		if (V.plusRestroomUsed.day !== restroomDay()) {
+			V.plusRestroomUsed.day = restroomDay();
+			V.plusRestroomUsed.keys = {};
+		}
+		return V.plusRestroomUsed.keys;
+	}
+	window.plusRestroomHouseKey = function (street, house) {
+		return String(street || "") + "::" + String(house || "");
+	};
+	window.plusRestroomCanAsk = function (street, house) {
+		if (!street || !house) return false;
+		return !restroomUsedMap()[window.plusRestroomHouseKey(street, house)];
+	};
+	window.plusRestroomMarkUsed = function (street, house) {
+		if (!street || !house) return;
+		restroomUsedMap()[window.plusRestroomHouseKey(street, house)] = 1;
+	};
+	function crimeSum() {
+		const V = State.variables;
+		if (!V || !V.crime || typeof V.crime !== "object") return 0;
+		let tot = 0;
+		for (const k of Object.keys(V.crime)) {
+			const c = V.crime[k];
+			if (c && Number.isFinite(c.current)) tot += c.current;
+		}
+		return tot;
+	}
+	function fameGood() {
+		const f = State.variables && State.variables.fame;
+		return f && Number.isFinite(f.good) ? f.good : 0;
+	}
+	function fameBad() {
+		const f = State.variables && State.variables.fame;
+		if (!f) return 0;
+		return BAD_FAME.reduce((s, k) => s + (Number.isFinite(f[k]) ? f[k] : 0), 0);
+	}
+	window.plusRestroomSmellNoticed = function (force) {
+		if (force === true) return true;
+		if (force === false) return false;
+		const c = typeof window.plusSmellChance === "function" ? window.plusSmellChance() : 0;
+		if (c <= 0) return false;
+		const inten = typeof window.plusSmellIntensity === "function" ? window.plusSmellIntensity() : 1;
+		if (inten >= 2 && c >= 0.08) return Math.random() < Math.min(0.95, c * 4);
+		return Math.random() < Math.min(0.9, c * 2.5);
+	};
+	window.plusRestroomAcceptChance = function (opts = {}) {
+		const V = State.variables;
+		const beauty = Number(V && V.beauty) || 0;
+		const allure = Number(V && V.allure) || 0;
+		const exposed = Number(V && V.exposed) || 0;
+		const bladder = Number(V && V.plusBladder);
+		const bowels = Number(V && V.plusBowels);
+		const urgent = (Number.isFinite(bladder) && bladder <= URGENT) || (Number.isFinite(bowels) && bowels <= URGENT);
+		const desperate = (Number.isFinite(bladder) && bladder <= 100) || (Number.isFinite(bowels) && bowels <= 100);
+		const isNight = opts.night != null ? !!opts.night : night();
+		let dusk = false, dawn = false;
+		try {
+			const st = Time.dayState;
+			dusk = st === "dusk";
+			dawn = st === "dawn";
+		} catch (e) {}
+		if (opts.dusk != null) dusk = !!opts.dusk;
+		if (opts.dawn != null) dawn = !!opts.dawn;
+		const visible = opts.visible != null ? !!opts.visible : !!(window.plusDiaperVisible && window.plusDiaperVisible());
+		const smell = opts.smell != null ? !!opts.smell : window.plusRestroomSmellNoticed();
+		const mods = {
+			beauty: Math.clamp((beauty - 2500) / 10000, -0.10, 0.15),
+			fameGood: Math.clamp(fameGood() / 1000 * 0.08, 0, 0.12),
+			fameBad: -Math.clamp(fameBad() / 2000 * 0.10, 0, 0.15),
+			allure: allure >= 2000 ? -Math.clamp((allure - 2000) / 8000, 0, 0.15) : (allure > 0 && allure < 1500 ? 0.03 : 0),
+			crime: -Math.clamp(crimeSum() / 20000, 0, 0.25),
+			exposed: exposed > 0 ? -0.20 : 0,
+			night: isNight ? -0.22 : dusk ? -0.08 : dawn ? -0.04 : 0,
+			pleading: desperate ? 0.20 : urgent ? 0.12 : 0,
+			visible: visible ? -0.18 : 0,
+			smell: smell ? -0.16 : 0,
+		};
+		let p = RESTROOM_BASE;
+		for (const k of Object.keys(mods)) p += mods[k];
+		p = Math.clamp(p, RESTROOM_MIN, RESTROOM_MAX);
+		return {
+			p: Math.round(p * 1000) / 1000,
+			base: RESTROOM_BASE,
+			mods,
+			night: isNight,
+			dusk,
+			dawn,
+			urgent,
+			desperate,
+			pleading: mods.pleading > 0,
+			visible,
+			smell,
+			commented: visible || smell,
+		};
+	};
+	window.plusRestroomRefuseAccidentChance = function () {
+		const V = State.variables;
+		const bladder = Number(V && V.plusBladder);
+		const bowels = Number(V && V.plusBowels);
+		const lowest = Math.min(Number.isFinite(bladder) ? bladder : 2000, Number.isFinite(bowels) ? bowels : 2000);
+		if (lowest > URGENT) return 0;
+		return lowest <= 100 ? 0.5 : 0.25;
+	};
+	window.plusRestroomAccidentWhich = function () {
+		const V = State.variables;
+		const b = Number(V && V.plusBladder), w = Number(V && V.plusBowels);
+		const bU = Number.isFinite(b) && b <= URGENT, wU = Number.isFinite(w) && w <= URGENT;
+		if (bU && wU) return "both";
+		if (wU) return "plusBowels";
+		if (bU) return "plusBladder";
+		return "";
+	};
+	window.plusRestroomResolve = function (opts = {}) {
+		const V = State.variables;
+		const street = opts.street || V.plusRestroomReturn || "";
+		const house = opts.house || V.plusRestroomHouse || "";
+		const info = window.plusRestroomAcceptChance(opts);
+		if (street && house) window.plusRestroomMarkUsed(street, house);
+		let accepted = opts.force === true ? true : opts.force === false ? false : Math.random() < info.p;
+		const accP = window.plusRestroomRefuseAccidentChance();
+		const which = window.plusRestroomAccidentWhich();
+		const accident = !accepted && which && (opts.forceAccident === true || (opts.forceAccident !== false && Math.random() < accP));
+		const out = Object.assign({}, info, {
+			accepted,
+			street,
+			house,
+			accident: !!accident,
+			accidentWhich: accident ? which : "",
+			accidentChance: accP,
+		});
+		V.plusRestroomLast = out;
+		return out;
+	};
 })();
 
 /* ---- Classroom: ask the teacher to leave for the toilet / a drink ---- */

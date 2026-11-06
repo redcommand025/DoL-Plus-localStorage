@@ -678,3 +678,61 @@ You take off your used _pnName, wrap it up and drop it in the bin. You feel clea
 	<</if>>
 	<br>
 <</widget>>
+
+
+:: Widgets Plus Needs Restroom Ask [widget plusneeds]
+<<widget "plusAskRestroomLink">>
+	<<if plusRestroomCanAsk(_args[0], _args[1])>>
+		<<bathroomicon "toilet">><<link [[Ask to use their restroom|Plus Needs Restroom Ask]]>><<set $plusRestroomReturn to _args[0]>><<set $plusRestroomHouse to _args[1]>><</link>>
+		<br>
+	<</if>>
+<</widget>>
+
+:: Plus Needs Restroom Ask [plusneeds]
+<<effects>>
+<<run plusRestroomResolve()>>
+<<if $plusRestroomLast.accepted>>
+	<<pass 10>>
+	<<if $plusRestroomLast.pleading>>
+		You explain, a little desperately, that you really cannot wait. <<if $plusRestroomLast.commented>><<if $plusRestroomLast.visible>>Their gaze dips to the outline of your diaper, and they hesitate. <</if>><<if $plusRestroomLast.smell>>They wrinkle their nose, then sigh. <</if>><</if>>"You look like you're about to burst," they say. "Fine. Be quick, and don't make a mess."
+	<<elseif $plusRestroomLast.commented>>
+		<<if $plusRestroomLast.visible>>They notice the outline of your diaper and raise an eyebrow, but they step aside anyway. "Bathroom's down the hall. Don't linger."<</if>>
+		<<if $plusRestroomLast.smell>>They catch a whiff of something and grimace, then point down the hall. "Bathroom's that way. Wash up after."<</if>>
+		<<run plusDiaperExposure()>>
+		<<if $plusRestroomLast.visible and plusDiaperStressApplies("seen")>><<stress 6>><<gstress>><</if>>
+		<<if $plusRestroomLast.smell and plusDiaperStressApplies("use")>><<stress 3>><<gstress>><</if>>
+	<<else>>
+		They look you over, then nod. "Alright. Bathroom's just down the hall. Don't be long."
+	<</if>>
+	<br><br>
+	You thank them and hurry inside. The bathroom is small and ordinary. You use the toilet, wash your hands, and feel much more comfortable.
+	<<run plusNeedsToilet("both")>><<plusDiaperToiletNote>>
+	<br><br>
+	<<plusDiaperChangeLink>>
+	<<getouticon>><<link [[Thank them and leave|$plusRestroomReturn]]>><<endevent>><<set $eventskip to 1>><</link>>
+<<else>>
+	<<pass 1>>
+	<<if $plusRestroomLast.commented and $plusRestroomLast.visible and $plusRestroomLast.smell>>
+		Their eyes drop to the outline of your diaper, and they wrinkle their nose. "No. Not in my house." The door closes in your face.
+	<<elseif $plusRestroomLast.visible>>
+		They glance down at the outline of your diaper. "Absolutely not." The door shuts firmly.
+	<<elseif $plusRestroomLast.smell>>
+		They wrinkle their nose. "What's that smell? No. Goodbye." The door closes.
+	<<elseif $plusRestroomLast.night>>
+		"Do you have any idea what time it is?" they say. "Come back in the morning." The door closes.
+	<<else>>
+		They shake their head. "Sorry. I don't let strangers use the bathroom." The door closes.
+	<</if>>
+	<<if $plusRestroomLast.commented>>
+		<<run plusDiaperExposure()>>
+		<<if $plusRestroomLast.visible and plusDiaperStressApplies("seen")>><<stress 6>><<gstress>><</if>>
+		<<if $plusRestroomLast.smell and plusDiaperStressApplies("use")>><<stress 3>><<gstress>><</if>>
+	<</if>>
+	<<stress 4>><<gstress>>
+	<br><br>
+	<<if $plusRestroomLast.accident>>
+		<<plusNeedsAccident `$plusRestroomLast.accidentWhich`>>
+		<br><br>
+	<</if>>
+	<<getouticon>><<link [[Leave|$plusRestroomReturn]]>><<endevent>><<set $eventskip to 1>><</link>>
+<</if>>
