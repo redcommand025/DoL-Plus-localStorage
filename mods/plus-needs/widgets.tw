@@ -67,7 +67,7 @@
 	<<if $plusThirst lte 0>>
 		<span class="red">Your head pounds from thirst.</span>
 	<</if>>
-	<<if $plusFlat.rented>>
+	<<if $plusFlat and $plusFlat.rented>>
 		<span class="teal"><<print plusFlatStatusLine()>></span>
 	<</if>>
 	<<set _pnVis to plusDiaperVisibility()>>
@@ -213,7 +213,7 @@ You grab a quick snack and a glass of water.
 	<<if Number.isFinite($plusThirst)>><<plusNeedsMobileStat "Th" "Thirst" $plusThirst>><</if>>
 	<<if Number.isFinite($plusBladder)>><<plusNeedsMobileStat "Bl" "Bladder" $plusBladder>><</if>>
 	<<if Number.isFinite($plusBowels)>><<plusNeedsMobileStat "Bw" "Bowels" $plusBowels>><</if>>
-	<<if $plusFlat.rented>><div class="teal"><<print plusFlatStatusLine()>></div><</if>>
+	<<if $plusFlat and $plusFlat.rented>><div class="teal"><<print plusFlatStatusLine()>></div><</if>>
 <</widget>>
 
 :: Widgets Plus Needs Statistics [widget plusneeds]
@@ -770,7 +770,7 @@ You take off your used _pnName, wrap it up and drop it in the bin. You feel clea
 
 :: Widgets Plus Flat [widget plusneeds]
 <<widget "plusFlatSocial">>
-	<<if $plusFlat.rented>>
+	<<if $plusFlat and $plusFlat.rented>>
 		<div class="relation-box">
 			<div class="relation-description"><span class="teal"><<print plusFlatStatusLine()>></span></div>
 		</div>
@@ -778,7 +778,7 @@ You take off your used _pnName, wrap it up and drop it in the bin. You feel clea
 <</widget>>
 
 <<widget "plusFlatStreetLinks">>
-	<<if $plusFlat.rented>>
+	<<if $plusFlat and $plusFlat.rented>>
 		<<homeicon>><<link [[Your flat (0:01)|Plus Flat Bedroom]]>><<pass 1>><</link>>
 		<br>
 	<<else>>
@@ -788,7 +788,7 @@ You take off your used _pnName, wrap it up and drop it in the bin. You feel clea
 <</widget>>
 
 <<widget "plusFlatDomusLink">>
-	<<if $plusFlat.rented>>
+	<<if $plusFlat and $plusFlat.rented>>
 		<<homeicon>><<link [[Your flat (0:10)|Plus Flat Bedroom]]>><<pass 10>><</link>>
 		<br>
 	<</if>>
@@ -815,7 +815,7 @@ You take off your used _pnName, wrap it up and drop it in the bin. You feel clea
 <<set $outside to 0>><<location "flats">><<effects>>
 You step into a small letting office beside the stairwell. A clerk looks up from a folder of papers.
 <br><br>
-<<if $plusFlat.rented>>
+<<if $plusFlat and $plusFlat.rented>>
 	"You're already down as the tenant of the upstairs flat," the clerk says. "Keys still work. Rent is £1,500 at the end of each month."
 	<br><br>
 	<<homeicon>><<link [[Go to your flat|Plus Flat Bedroom]]>><</link>>
@@ -864,7 +864,7 @@ You step into a small letting office beside the stairwell. A clerk looks up from
 
 
 :: Plus Flat Bedroom [plusneeds]
-<<if $plusFlat.msg is "evicted" or not $plusFlat.rented>>
+<<if not $plusFlat or $plusFlat.msg is "evicted" or not $plusFlat.rented>>
 	<<if $plusFlat.msg is "evicted">>
 		<<goto "Plus Flat Evicted">>
 	<<else>>
@@ -912,7 +912,7 @@ You settle under the covers in your own bed. The building is quieter than the or
 <<effects>>
 <<wakingEffects $sleepHoursTotal>>
 <<sleepeffects>>
-<<if !$plusFlat.rented and $plusFlat.msg is "evicted">>
+<<if $plusFlat and !$plusFlat.rented and $plusFlat.msg is "evicted">>
 	You wake to a knock and the sound of keys in the lock.
 	<br><br>
 	<<link [[Next|Plus Flat Evicted]]>><</link>>

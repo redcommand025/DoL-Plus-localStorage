@@ -143,6 +143,123 @@ def parse_tw(path):
             cur[2].append(line)
     return [(n, tg, "\n".join(b).strip("\n")) for n, tg, b in out]
 
+
+STORAGE_FALLBACK = r"""/*plusneeds-storage*/
+/* Storage fallback: localStorage/sessionStorage/indexedDB may be missing or throw
+   (private windows, blocked storage). Keep an in-memory stub so boot cannot loop. */
+(function(){
+  function makeStub(){
+    var mem = {};
+    return {
+      getItem: function(k){ k = String(k); return Object.prototype.hasOwnProperty.call(mem, k) ? mem[k] : null; },
+      setItem: function(k, v){ try { mem[String(k)] = String(v); } catch(e){} },
+      removeItem: function(k){ delete mem[String(k)]; },
+      clear: function(){ mem = {}; },
+      key: function(i){ return Object.keys(mem)[i] || null; },
+      get length(){ return Object.keys(mem).length; }
+    };
+  }
+  var memLS = makeStub();
+  var memSS = makeStub();
+  function works(s){
+    try {
+      if (!s || typeof s.getItem !== "function" || typeof s.setItem !== "function") return false;
+      var t = "__dol_store_test__";
+      s.setItem(t, "1");
+      var ok = s.getItem(t) === "1";
+      s.removeItem(t);
+      return ok;
+    } catch (e) { return false; }
+  }
+  function ensure(name, stub){
+    try { if (works(window[name])) return; } catch (e) {}
+    try { delete window[name]; } catch (e) {}
+    try {
+      Object.defineProperty(window, name, { value: stub, configurable: true, writable: true });
+      if (works(window[name])) return;
+    } catch (e) {}
+    try { window[name] = stub; } catch (e) {}
+  }
+  ensure("localStorage", memLS);
+  ensure("sessionStorage", memSS);
+  try {
+    if (typeof Storage !== "undefined" && Storage.prototype) {
+      ["getItem","setItem","removeItem","clear","key"].forEach(function(method){
+        try {
+          var orig = Storage.prototype[method];
+          if (typeof orig !== "function") return;
+          Storage.prototype[method] = function(){
+            try { return orig.apply(this, arguments); }
+            catch (e) {
+              var stub = memLS;
+              try { if (this === window.sessionStorage) stub = memSS; } catch (e2) {}
+              return stub[method].apply(stub, arguments);
+            }
+          };
+        } catch (e) {}
+      });
+    }
+  } catch (e) {}
+  window.plusneedsMemoryStore = function(storageId, persistent){
+    var key = String(storageId) + (persistent ? "!p" : "!s");
+    var root = window.__plusneedsMem = window.__plusneedsMem || {};
+    if (!root[key]) root[key] = {};
+    var d = root[key];
+    return {
+      name: "memory", id: storageId, persistent: !!persistent,
+      get length(){ return Object.keys(d).length; },
+      size: function(){ return Object.keys(d).length; },
+      keys: function(){ return Object.keys(d); },
+      has: function(k){ return Object.prototype.hasOwnProperty.call(d, k); },
+      get: function(k){ return Object.prototype.hasOwnProperty.call(d, k) ? d[k] : null; },
+      set: function(k, v){ if (!k && k !== 0) return false; d[k] = v; return true; },
+      delete: function(k){ delete d[k]; return true; },
+      clear: function(){ Object.keys(d).forEach(function(x){ delete d[x]; }); return true; }
+    };
+  };
+  try {
+    if (navigator.storage && typeof navigator.storage.persist === "function") {
+      var persistOrig = navigator.storage.persist.bind(navigator.storage);
+      navigator.storage.persist = function(){
+        try { return persistOrig(); } catch (e) { return Promise.resolve(false); }
+      };
+    }
+  } catch (e) {}
+})();
+/*/plusneeds-storage*/
+"""
+
+def harden_storage(s):
+    """Idempotent guards so missing/throwing web storage cannot prevent boot."""
+    s = re.sub(r"/\*plusneeds-storage\*/.*?/\*/plusneeds-storage\*/", STORAGE_FALLBACK, s, count=1, flags=re.S)
+    old_fb = "/* Storage fallback for devices with no storage"
+    if "/*plusneeds-storage*/" not in s and old_fb in s:
+        s = re.sub(
+            r"/\* Storage fallback for devices with no storage.*?\}\)\(\);",
+            STORAGE_FALLBACK,
+            s,
+            count=1,
+            flags=re.S,
+        )
+    old_idb = "const idb=(()=>{if(null==window.indexedDB)"
+    new_idb = "const idb=(()=>{if(null==(function(){try{return window.indexedDB}catch(e){return null}})())"
+    if old_idb in s:
+        assert s.count(old_idb) == 1, "indexedDB guard anchor not unique"
+        s = s.replace(old_idb, new_idb, 1)
+    old_persist = 'navigator.storage&&"function"==typeof navigator.storage.persist&&navigator.storage.persist()'
+    new_persist = '(function(){try{navigator.storage&&"function"==typeof navigator.storage.persist&&navigator.storage.persist()}catch(e){}})()'
+    if old_persist in s:
+        s = s.replace(old_persist, new_persist, 1)
+    old_parse = "if(_settings=JSON.parse(raw)||{"
+    new_parse = "if(_settings=(function(){try{return raw?JSON.parse(raw):null}catch(e){return null}})()||{"
+    if old_parse in s:
+        s = s.replace(old_parse, new_parse, 1)
+    old_throw = 'throw new Error("no valid storage adapters found")'
+    new_throw = 'return (typeof window.plusneedsMemoryStore==="function"?window.plusneedsMemoryStore(storageId,persistent):null)'
+    if old_throw in s:
+        s = s.replace(old_throw, new_throw, 1)
+    return s
+
 def main():
     s = open(SRC, encoding="utf-8").read()
     # 1. JS module
@@ -216,6 +333,7 @@ def main():
         new += '<tw-passagedata pid="%d" name="%s" tags="%s" position="0,0" size="100,100">%s</tw-passagedata>' % (pid, esc(n), esc(tg), esc(body))
     i = s.index("</tw-storydata>")
     s = s[:i] + new + s[i:]
+    s = harden_storage(s)
     for o in OUTS:
         open(o, "w", encoding="utf-8").write(s)
     print("built", OUTS)
