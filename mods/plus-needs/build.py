@@ -58,7 +58,8 @@ EDITS.append(("Widgets modUpdate", "after",
               '<<if $background.plantlover is undefined>>\n\t\t<<set $background.plantlover to false>>\n\t<</if>>',
               '\n\n\t<<if $background.incontinent is undefined>>\n\t\t<<set $background.incontinent to false>>\n\t<</if>>'))
 EDITS.append(("Pharmacy", "before", "Looking at the items on the shelves, you notice a few objects of interest.", "<<plusDiaperShop>>"))
-EDITS.append(("Clothing Shop", "after", '<div id="clothingShop-div" class="main-shop-div">', "<<plusDiaperShop>>"))
+EDITS.append(("Clothing Shop", "after", '<div id="clothingShop-div" class="main-shop-div">', '<<plusDiaperShop "clothing">>'))
+EDITS.append(("Adult Shop Store", "after", '<div id="clothingShop-div" class="main-shop-div">', '<<plusDiaperShop "adult">>'))
 EDITS.append(("Characteristics", "before", '<</widget>>\n\n<<widget "heatRutDisplay">>', "\n<<plusDiaperInsecurity>>\n"))
 EDITS.append(("Social", "after", "<<relation-box-simple _overallFameBoxConfig>>", "\n\t\t\t<<plusContRepFame>>"))
 EDITS.append(("Widgets Attitudes", "before", "<<if $attitudesControl.unlockProstitution>>", "<<plusDiaperAttitudes>>"))

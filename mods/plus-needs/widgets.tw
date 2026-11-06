@@ -589,18 +589,18 @@ You take off your used _pnName, wrap it up and drop it in the bin. You feel clea
 <</widget>>
 
 <<widget "plusDiaperShop">>
+	<<set _plusShopLoc to (_args[0] or "clothing")>>
+	<<if _plusShopLoc is "adult" and not plusDiaperAdultShopOpen()>>
+	<<else>>
 	<div class="plus-diaper-shop">
-		<span class="gold">Continence supplies</span> — packs of disposable diapers and pull-ups, cheaper than buying them one at a time (20% off a pack of 5, 30% off a pack of 10).
+		<<if _plusShopLoc is "adult">>
+			<span class="gold">Larger continence supplies</span> — high-capacity packs sold here once the shop is open (20% off a pack of 5, 30% off a pack of 10).
+		<<else>>
+			<span class="gold">Continence supplies</span> — packs of disposable diapers and pull-ups, cheaper than buying them one at a time (20% off a pack of 5, 30% off a pack of 10). Large is the standard size; bigger capacities are stocked at the adult shop on Elk Street once it opens.
+		<</if>>
 		<br>
-		<<set _plusPacks to [
-			["plastic-backed diaper (Medium)", 5], ["plastic-backed diaper (Medium)", 10],
-			["plastic-backed diaper (Large)", 5], ["plastic-backed diaper (Large)", 10],
-			["pull-up (Medium)", 5], ["pull-up (Medium)", 10],
-			["pull-up (Large)", 5],
-			["plastic-backed diaper (Small)", 5]
-		]>>
-		<<for _plusPack range _plusPacks>>
-			<<set _plusPI to plusDiaperPackPrice(_plusPack[0], _plusPack[1])>>
+		<<set _plusPacks to plusDiaperPackList(_plusShopLoc)>>
+		<<for _plusPI range _plusPacks>>
 			<<if _plusPI>>
 				<<capture _plusPI>>
 					<<icon "plusneeds/diaper-change.png">><<link `"Pack of " + _plusPI.count + " " + _plusPI.name + " (£" + (_plusPI.price / 100).toFixed(2) + ")"` "Plus Needs Diaper Buy">><<set $plusBuyName to _plusPI.name>><<set $plusBuyCount to _plusPI.count>><<set $plusBuyReturn to $passage>><</link>>
@@ -611,6 +611,7 @@ You take off your used _pnName, wrap it up and drop it in the bin. You feel clea
 		<</for>>
 		<br>
 	</div>
+	<</if>>
 <</widget>>
 
 :: Plus Needs Bladder Exercise [plusneeds]

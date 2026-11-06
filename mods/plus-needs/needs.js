@@ -1495,13 +1495,18 @@ window.plusNowTs = function () {
 		[U, "Extra Small", "pluspuxs", [450, 450], [0.4, 0.4], "2–4 hours (or until first significant use saturates it)", 400, "pull-up.png"],
 	];
 	const BLURB = { [P]: "A disposable diaper with a crinkly plastic backing.", [C]: "Soft, washable cloth. Reusable: wash it to reset it.", [U]: "Disposable underwear that pulls up and down like normal pants." };
+	/* Large (size 4 on the swell scale) is the standard/"normal" capacity.
+	 * The clothing shop and pharmacy sell Large and below; Extra Large and up
+	 * are only stocked at the adult shop after it opens ($adultshopunlocked). */
+	const OVERSIZE = new Set(["Extra Large", "Ultra", "Max", "Hyper"]);
 	const DEF = {};
 	const fmtR = (r, u) => (r[0] === r[1] ? `${r[0]}` : `${r[0]}–${r[1]}`) + u;
 	for (const [cat, size, variable, ml, lb, use, cost, icon] of MODELS) {
 		const single = size === "Extra Small";
 		const name = `${cat} (${size})`;
 		const desc = `${BLURB[cat]}${single ? " Single use." : ""} Avg. Use: ${use}. Holds ${fmtR(ml, " ml")} and ${fmtR(lb, " lb")}.`;
-		DEF[name] = { name, cat, size, variable, ml, lb, use, cost, icon: "plusneeds/" + icon, cloth: cat === C, single, desc };
+		const shop = OVERSIZE.has(size) ? "adult" : "clothing";
+		DEF[name] = { name, cat, size, variable, ml, lb, use, cost, icon: "plusneeds/" + icon, cloth: cat === C, single, desc, shop };
 	}
 	window.plusDiaperDefs = DEF;
 	// v1 saves -> nearest v2 model (wet/soil counts convert at 400 ml / 0.5 lb each)
@@ -1517,7 +1522,7 @@ window.plusNowTs = function () {
 			colour: 0, colour_options: ["pale white"], colour_sidebar: 0,
 			exposed: 0, exposed_base: 0, vagina_exposed: 0, vagina_exposed_base: 0, anus_exposed: 0, anus_exposed_base: 0,
 			type: ["normal", "antitransparent"], anal_shield: 0, set: "under_lower", gender: "n", femininity: 0,
-			warmth: 2, cost: d.cost, description: d.desc, shop: ["clothing"],
+			warmth: 2, cost: d.cost, description: d.desc, shop: [d.shop],
 			accessory: 0, accessory_colour: 0, accessory_colour_options: [], penis_img: 1, high_img: 0,
 			cursed: 0, location: 0, iconFile: d.icon, accIcon: 0, modder: "plusneeds",
 		}));
@@ -1767,7 +1772,46 @@ window.plusNowTs = function () {
 		const d = window.plusDayKey();
 		if (V.plusSupplyWarnDay === d) return "";
 		V.plusSupplyWarnDay = d;
-		return n <= 0 ? "You're out of clean spare diapers." : `You're running low on clean spare diapers (${n} left).`;
+		const hint = window.plusDiaperAdultShopOpen()
+			? " You can pick up more at the clothing shop, the pharmacy, or larger sizes at the adult shop on Elk Street."
+			: " You can pick up more at the clothing shop or the pharmacy.";
+		return (n <= 0 ? "You're out of clean spare diapers." : `You're running low on clean spare diapers (${n} left).`) + hint;
+	};
+	window.plusDiaperItemShop = function (name) {
+		const d = DEF[name] || (name && name.name && DEF[name.name]);
+		return d ? d.shop : "";
+	};
+	window.plusDiaperAdultShopOpen = function () {
+		return !!(State.variables && State.variables.adultshopunlocked);
+	};
+	window.plusDiaperSoldAt = function (name, location) {
+		if (window.plusDiaperItemShop(name) !== location) return false;
+		if (location === "adult" && !window.plusDiaperAdultShopOpen()) return false;
+		return true;
+	};
+	window.plusDiaperShopNames = function (location) {
+		return Object.values(DEF).filter(d => d.shop === location).map(d => d.name);
+	};
+	const PACKS = [
+		["plastic-backed diaper (Medium)", 5, "clothing"],
+		["plastic-backed diaper (Medium)", 10, "clothing"],
+		["plastic-backed diaper (Large)", 5, "clothing"],
+		["plastic-backed diaper (Large)", 10, "clothing"],
+		["pull-up (Medium)", 5, "clothing"],
+		["pull-up (Medium)", 10, "clothing"],
+		["pull-up (Large)", 5, "clothing"],
+		["plastic-backed diaper (Small)", 5, "clothing"],
+		["plastic-backed diaper (Extra Large)", 5, "adult"],
+		["plastic-backed diaper (Extra Large)", 10, "adult"],
+		["plastic-backed diaper (Ultra)", 5, "adult"],
+		["plastic-backed diaper (Ultra)", 10, "adult"],
+		["plastic-backed diaper (Max)", 5, "adult"],
+		["plastic-backed diaper (Hyper)", 5, "adult"],
+	];
+	window.plusDiaperPackList = function (location) {
+		const loc = location || "clothing";
+		if (loc === "adult" && !window.plusDiaperAdultShopOpen()) return [];
+		return PACKS.filter(p => p[2] === loc).map(([name, count]) => window.plusDiaperPackPrice(name, count)).filter(Boolean);
 	};
 	window.plusDiaperPackPrice = function (name, count) {
 		const d = DEF[name];
@@ -1778,6 +1822,7 @@ window.plusNowTs = function () {
 	window.plusDiaperBuyPack = function (name, count) {
 		const V = State.variables, info = window.plusDiaperPackPrice(name, count);
 		if (!info) return { ok: false, reason: "item" };
+		if (window.plusDiaperItemShop(name) === "adult" && !window.plusDiaperAdultShopOpen()) return { ok: false, reason: "item", ...info };
 		if (!Number.isFinite(V.money) || V.money < info.price) return { ok: false, reason: "money", ...info };
 		const tpl = setup.clothes.under_lower.find(c => c.name === name);
 		if (!tpl || !V.wardrobe || !Array.isArray(V.wardrobe.under_lower)) return { ok: false, reason: "wardrobe", ...info };
