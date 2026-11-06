@@ -50,6 +50,18 @@ EDITS.append(("Mansion Bathroom", "append", None, "<br><<plusToiletLink>>"))
 EDITS.append(("Widgets Settings", "after", "You get a bonus to Tending as your Trauma increases.</span></mouse>\n\t\t\t\t</label>",
               '\n\t\t\t\t<br>\n\t\t\t\t<label><span class="purple">Incontinent</span> <<checkbox "$background.incontinent" false true autocheck>> - You\'ve always struggled to hold it. <span class="green">You start with Leaky continence and wear pull-ups.</span></label>'))
 EDITS.append(("Start2", "append", None, "<<run plusIncontinentStart()>>"))
+EDITS.append(("Start2", "after", "Welcome to the alpha of Degrees of Lewdity Plus!", "<br><<plusNeedsIntroTip>>"))
+EDITS.append(("Widgets modUpdate", "after",
+              '<<if $background is "plantlover">>\n\t\t\t<<set _tmp to "plantlover">>\n\t\t<</if>>',
+              '\n\t\t<<if $background is "incontinent">>\n\t\t\t<<set _tmp to "incontinent">>\n\t\t<</if>>'))
+EDITS.append(("Widgets modUpdate", "after",
+              '<<if $background.plantlover is undefined>>\n\t\t<<set $background.plantlover to false>>\n\t<</if>>',
+              '\n\n\t<<if $background.incontinent is undefined>>\n\t\t<<set $background.incontinent to false>>\n\t<</if>>'))
+EDITS.append(("Pharmacy", "before", "Looking at the items on the shelves, you notice a few objects of interest.", "<<plusDiaperShop>>"))
+EDITS.append(("Clothing Shop", "after", '<div id="clothingShop-div" class="main-shop-div">', "<<plusDiaperShop>>"))
+EDITS.append(("Widgets variablesStart2", "after",
+              '<<set _backgroundOptions to ["waif","nerd","athlete","delinquent","promiscuous","exhibitionist","deviant","beautiful","lustful","plantlover"]>>',
+              '<<run _backgroundOptions.push("incontinent")>>'))
 # Public drinking spots and extra toilets: (passage, anchor, code). Inserted before the anchor.
 SPOTS = [
     ("Dance Studio", "<<barbicon>><<link [[Leave|Barb Street]]>><</link>>", '<<plusDrinkLink "cooler">>'),
@@ -62,7 +74,7 @@ SPOTS = [
     ("Lake Shore", "<<foresticon>><<link [[Forest (0:10)|Forest]]>>", '<<plusDrinkLink "lake">><<plusOutdoorToiletLink "lake">>'),
     ("Lake Waterfall", "<<foresticon>><<link [[Forest (0:10)|Forest]]>>", '<<plusDrinkLink "lake">><<plusOutdoorToiletLink "lake">>'),
     ("Lake Campsite", "<<foresticon>><<link [[Forest (0:10)|Forest]]>>", '<<plusDrinkLink "lake">><<plusOutdoorToiletLink "lake">>'),
-    ("Hospital Foyer", "<<getouticon>><<link [[Go outside (0:01)|Hospital front]]>>", '<<plusDrinkLink "cooler">><<plusToiletLink>><br>'),
+    ("Hospital Foyer", "<<getouticon>><<link [[Go outside (0:01)|Hospital front]]>>", '<<plusDrinkLink "cooler">><<plusToiletLink>><<plusBladderExerciseLink>><br>'),
     ("Shopping Centre", '<<stairsicon "up">><<link [[Go upstairs (0:02)|Shopping Centre Top]]>>', '<<plusDrinkLink "fountain">><<plusToiletLink>><br>'),
     ("Ocean Breeze", "<<clifficon>><<link [[Leave|Cliff Street]]>>", '<<plusDrinkLink "cafe">><<plusToiletLink>><br>'),
 ]
@@ -133,6 +145,9 @@ def main():
     # record the total length of the current <<pass>> so a long skip (sleep) can't cause an accident
     a = "\tconst multiplier = secondsMapper[type] || 1;"
     s = s.replace(a, a + mark("\n\twindow.plusNeedsPassTotal = (time * multiplier) / 60;"), 1)
+    bg_anchor = '"plantlover"],\n\t\t\t\t\tdisplayName: "Background:"'
+    assert s.count(bg_anchor) == 1, bg_anchor
+    s = s.replace(bg_anchor, '"plantlover"' + mark(', "incontinent"') + '],\n\t\t\t\t\tdisplayName: "Background:"', 1)
     # 3. remove old mod passages
     s = re.sub(r'<tw-passagedata[^>]*tags="[^"]*plusneeds[^"]*"[^>]*>.*?</tw-passagedata>', "", s, flags=re.S)
     # 4. passage edits

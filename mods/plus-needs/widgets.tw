@@ -78,12 +78,14 @@
 	<<bathroomicon "toilet">><<link [[Use the toilet (0:03)|Plus Needs Toilet]]>><<set $plusToiletReturn to $passage>><</link>>
 	<br>
 	<<plusCleanLink>>
+	<<plusDiaperChangeLink>>
 <</widget>>
 
 /* Public toilet block (beach, High Street): uses the same toilet passage, so stats are counted the same way. */
 <<widget "plusPublicToiletLink">>
 	<<bathroomicon "toilet">><<link `_args[0] + " (0:03)"` "Plus Needs Toilet">><<set $plusToiletReturn to $passage>><</link>>
 	<br>
+	<<plusDiaperChangeLink>>
 <</widget>>
 
 <<widget "plusKitchenSnack">>
@@ -247,6 +249,12 @@ You grab a quick snack and a glass of water.
 		Accidents on the floor: _pns.accFloor
 		<br>
 		Times spotted having an accident: _pns.accSpotted
+		<br>
+		Accidents caught by a diaper: <<print _pns.accDiaper or 0>>
+		<br>
+		Diapers used (thrown away): <<print _pns.diapersUsed or 0>>
+		<br>
+		Nights you wet the bed: <<print _pns.bedwets or 0>>
 		<br>
 		Times you found a place to go in public: _pns.findPlace (spotted _pns.findPlaceSpotted)
 		<br><br>
@@ -470,6 +478,8 @@ A small laundromat sits off High Street. Rows of washing machines and tumble dry
 		}>>
 	<</silently>>
 	<<characteristic-box _plusContinenceConfig>>
+	<br>
+	<label><<checkbox "$plusScheduleOn" false true autocheck>> Scheduled toilet habit — going while moderately full trains your continence (+40 progress).</label>
 <</widget>>
 
 /* Classroom request links (lesson passages) */
@@ -541,9 +551,85 @@ A small laundromat sits off High Street. Rows of washing machines and tumble dry
 
 :: Plus Needs Diaper Change [plusneeds]
 <<effects>>
+<<run plusDiaperDispose()>>
 <<set _pnName to $worn.under_lower.name>>
 You take off your used _pnName, wrap it up and drop it in the bin. You feel cleaner already.
 <<underlowerruined true>>
 <<if $worn.under_lower.type.includes("naked")>> You aren't wearing anything under your clothes now.<</if>>
 <br><br>
 <<getouticon>><<link [[Continue|$plusDiaperReturn]]>><<set $eventskip to 1>><</link>>
+
+
+:: Widgets Plus Needs Intro [widget plusneeds]
+<<widget "plusNeedsIntroTip">>
+	<div class="plus-needs-intro">
+		You have a <span class="gold">continence</span> level, from Leaky to Steel, that affects how well you can hold it. Using the toilet when you need to — and practising bladder exercises at the hospital — will improve it. Accidents make it worse.
+		<<if $background.incontinent is true>>
+			<br><br>
+			<span class="purple">You start with Leaky continence and are wearing pull-ups. Keep spare clean ones in your wardrobe, and throw used disposables away at toilets or bins.</span>
+		<</if>>
+	</div>
+<</widget>>
+
+<<widget "plusBladderExerciseLink">>
+	<<icon "plusneeds/class-ask.png">>
+	<<if $money gte 1000>>
+		<<link [[Bladder exercises with a nurse (0:30, £10)|Plus Needs Bladder Exercise]]>><<set $plusExerciseReturn to $passage>><</link>>
+	<<else>>
+		<span class="blue">Bladder exercises with a nurse (0:30, £10)</span> — you can't afford this.
+	<</if>>
+	<br>
+<</widget>>
+
+<<widget "plusDiaperShop">>
+	<div class="plus-diaper-shop">
+		<span class="gold">Continence supplies</span> — packs of disposable diapers and pull-ups, cheaper than buying them one at a time (20% off a pack of 5, 30% off a pack of 10).
+		<br>
+		<<set _plusPacks to [
+			["plastic-backed diaper (Medium)", 5], ["plastic-backed diaper (Medium)", 10],
+			["plastic-backed diaper (Large)", 5], ["plastic-backed diaper (Large)", 10],
+			["pull-up (Medium)", 5], ["pull-up (Medium)", 10],
+			["pull-up (Large)", 5],
+			["plastic-backed diaper (Small)", 5]
+		]>>
+		<<for _plusPack range _plusPacks>>
+			<<set _plusPI to plusDiaperPackPrice(_plusPack[0], _plusPack[1])>>
+			<<if _plusPI>>
+				<<capture _plusPI>>
+					<<icon "plusneeds/diaper-change.png">><<link `"Pack of " + _plusPI.count + " " + _plusPI.name + " (£" + (_plusPI.price / 100).toFixed(2) + ")"` "Plus Needs Diaper Buy">><<set $plusBuyName to _plusPI.name>><<set $plusBuyCount to _plusPI.count>><<set $plusBuyReturn to $passage>><</link>>
+					<span class="blue">(save <<print Math.round(_plusPI.disc * 100)>>%)</span>
+				<</capture>>
+				<br>
+			<</if>>
+		<</for>>
+		<br>
+	</div>
+<</widget>>
+
+:: Plus Needs Bladder Exercise [plusneeds]
+<<effects>>
+<<set _plusEx to plusBladderExercise()>>
+<<if _plusEx.ok>>
+	<<pass 30>>
+	A nurse shows you a set of simple bladder-control exercises and has you practise them for half an hour. It's dull work, but you feel a little more in control afterwards.
+	<br><br>
+	<span class="green">Continence progress +_plusEx.xp.</span> The visit costs £10.
+<<else>>
+	You ask about bladder-control exercises, but you don't have the £10 the clinic charges.
+<</if>>
+<br><br>
+<<getouticon>><<link [[Finish|$plusExerciseReturn]]>><<set $eventskip to 1>><</link>>
+
+:: Plus Needs Diaper Buy [plusneeds]
+<<effects>>
+<<set _plusBuy to plusDiaperBuyPack($plusBuyName, $plusBuyCount)>>
+<<if _plusBuy.ok>>
+	You pay £<<print (_plusBuy.price / 100).toFixed(2)>> for a pack of _plusBuy.count _plusBuy.name. They're added to your wardrobe.
+	<<if _plusBuy.disc gt 0>><span class="green"> (<<print Math.round(_plusBuy.disc * 100)>>% bulk discount)</span><</if>>
+<<elseif _plusBuy.reason is "money">>
+	You can't afford a pack of $plusBuyCount $plusBuyName. It costs £<<print ((_plusBuy.price or 0) / 100).toFixed(2)>>.
+<<else>>
+	Those aren't in stock.
+<</if>>
+<br><br>
+<<getouticon>><<link [[Continue|$plusBuyReturn]]>><<set $eventskip to 1>><</link>>

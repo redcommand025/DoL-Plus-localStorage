@@ -52,7 +52,7 @@ window.plusNowTs = function () {
 	window.plusNeedsInit = init;
 
 	/* Lifetime statistics shown on the Statistics page ("Needs" foldout). */
-	const STAT_KEYS = ["mlTotal", "drinks", "meals", "snacks", "kcal", "pees", "poops", "accWet", "accSoiled", "accBoth", "zeroHunger", "zeroThirst", "mlToday", "smelt", "laundromat", "accFloor", "accSpotted", "findPlace", "findPlaceSpotted", "mlAbsorbed", "lbAbsorbed", "diaperNoticed"];
+	const STAT_KEYS = ["mlTotal", "drinks", "meals", "snacks", "kcal", "pees", "poops", "accWet", "accSoiled", "accBoth", "zeroHunger", "zeroThirst", "mlToday", "smelt", "laundromat", "accFloor", "accSpotted", "findPlace", "findPlaceSpotted", "mlAbsorbed", "lbAbsorbed", "diaperNoticed", "accDiaper", "diapersUsed", "bedwets"];
 	function stats() {
 		const V = State.variables;
 		if (!V.plusNeedsStats || typeof V.plusNeedsStats !== "object") V.plusNeedsStats = {};
@@ -72,6 +72,7 @@ window.plusNowTs = function () {
 		return Math.floor(window.plusNowTs() / 86400);
 	}
 	window.plusNeedsStats = stats;
+	window.plusDayKey = dayKey;
 	/* Millilitres per drink. Keys are prop names (see PROPS below) plus a few special sources. */
 	const ML = {
 		"water bottle": 500, "water bottle open": 500, tap: 250, "kitchen water": 250, "meal drink": 200,
@@ -124,6 +125,12 @@ window.plusNowTs = function () {
 			V.plusNeedsDrift[k] = d;
 			loss[k] = RATE[k] * minutes * (longPass ? SLEEP_RATE[k] : 1) * d * jitter(TICK_NOISE);
 		}
+		// Diuretics (coffee, energy drinks, alcohol) make the bladder fill faster for a while; water is unchanged.
+		if ((V.plusDiureticMin || 0) > 0) {
+			loss.plusBladder *= V.plusDiureticMul || 1;
+			V.plusDiureticMin = Math.max(0, V.plusDiureticMin - minutes);
+			if (V.plusDiureticMin <= 0) V.plusDiureticMul = 1;
+		}
 		const S = stats();
 		const wasH = V.plusHunger, wasT = V.plusThirst;
 		V.plusHunger = clamp(V.plusHunger - loss.plusHunger);
@@ -165,6 +172,31 @@ window.plusNowTs = function () {
 			if (longPass && v < LONG_PASS_FLOOR) v = Math.min(start, LONG_PASS_FLOOR);
 			v = clamp(v);
 			V[k] = v;
+			// Night protection: a long rest (sleep) at low continence can cause bed-wetting if no diaper is worn.
+			// A worn diaper prevents a wet bed (it absorbs instead). Never from short time skips.
+			if (longPass && k === "plusBladder" && minutes >= LONG_PASS && lvl <= 2) {
+				const hours = minutes / 60;
+				let risk = [0.88, 0.48, 0.18][lvl] * Math.min(1, hours / 8);
+				if (start < 1000) risk = Math.min(0.98, risk + 0.25);
+				if (Math.random() < risk) {
+					if (window.plusDiaperWorn && window.plusDiaperWorn()) {
+						try { window.plusDiaperAbsorb("plusBladder"); } catch (e) {}
+						S.accWet++;
+						V[k] = MAX;
+						G[k] = 0;
+						V.plusNightProtect = 1;
+					} else {
+						accident(k);
+						V.plusBedwet = 1;
+						S.bedwets++;
+						if (Number.isFinite(V.upperwet)) V.upperwet = Math.max(V.upperwet, 80);
+						if (Number.isFinite(V.lowerwet)) V.lowerwet = Math.max(V.lowerwet, 140);
+						if (Number.isFinite(V.underlowerwet)) V.underlowerwet = Math.max(V.underlowerwet, 200);
+						try { if (window.plusClothesDirt) window.plusClothesDirt(80); } catch (e) {}
+					}
+					continue;
+				}
+			}
 			if (inToilet) {
 				if (V[k] <= 0) V[k] = 1; // already on the toilet: no accident, the visit empties it
 				continue;
@@ -268,6 +300,32 @@ window.plusNowTs = function () {
 		for (const [lim, xp] of CONT_RELIEF_XP) if (v <= 0 ? lim === 0 : v < lim && lim > 0) return xp;
 		return 0;
 	};
+	/* Scheduled-toilet habit: going while moderately full (remaining 200-1600) grants bonus XP. */
+	window.plusScheduleBonus = function (v) {
+		const V = State.variables;
+		if (!V || !V.plusScheduleOn || !Number.isFinite(v)) return 0;
+		if (v > 1600 || v < 200) return 0;
+		return 40;
+	};
+	window.plusScheduleToggle = function () {
+		const V = State.variables;
+		V.plusScheduleOn = !V.plusScheduleOn;
+		return V.plusScheduleOn;
+	};
+	/* Hospital bladder exercises: £10, 30 minutes (caller passes time), +90 XP first visit each day, +25 after. */
+	window.plusBladderExercise = function () {
+		const V = State.variables;
+		if (!V) return { ok: false, reason: "state" };
+		init();
+		if (!Number.isFinite(V.money) || V.money < 1000) return { ok: false, reason: "money", price: 1000 };
+		if (typeof statChange !== "undefined" && statChange.money) statChange.money(-1000, "plusneeds");
+		else V.money -= 1000;
+		const d = dayKey();
+		const xp = V.plusExerciseDay === d ? 25 : 90;
+		V.plusExerciseDay = d;
+		window.plusContinenceXP(xp);
+		return { ok: true, xp, price: 1000 };
+	};
 	$(document).on(":passagerender", function (ev) {
 		const V = State.variables;
 		if (!V || V.combat === 1 || V.intro) return;
@@ -289,6 +347,16 @@ window.plusNowTs = function () {
 			}
 			delete V.plusHoldShow;
 		}
+		if (V.plusBedwet) {
+			html += (html ? " " : "") + `<span class="red">You wet the bed in your sleep. Your pyjamas and the sheets are soaked.</span>`;
+			delete V.plusBedwet;
+		} else if (V.plusNightProtect) {
+			html += (html ? " " : "") + `<span class="lblue">You leaked in your sleep, but your diaper kept the bed dry.</span>`;
+			delete V.plusNightProtect;
+		}
+		let supply = "";
+		try { supply = window.plusSupplyWarn && window.plusSupplyWarn(); } catch (e) { console.warn(e); }
+		if (supply) html += (html ? " " : "") + `<span class="purple">${supply}</span>`;
 		if (!html) return;
 		const div = document.createElement("div");
 		div.className = "plus-needs-continence";
@@ -298,7 +366,7 @@ window.plusNowTs = function () {
 
 	/* Eating and drinking. hunger/thirst = points restored. */
 	/* kind: "meal" | "snack" | "drink" (auto-detected if omitted); ml: millilitres drunk (auto if omitted). */
-	window.plusNeedsConsume = function (hunger = 0, thirst = 0, kind, ml) {
+	window.plusNeedsConsume = function (hunger = 0, thirst = 0, kind, ml, drinkKey) {
 		const V = State.variables;
 		if (!V) return;
 		init();
@@ -322,6 +390,35 @@ window.plusNowTs = function () {
 		// Drinks fill the bladder, meals fill the bowels.
 		V.plusBladder = clamp(V.plusBladder - thirst * 0.4);
 		V.plusBowels = clamp(V.plusBowels - hunger * 0.2);
+		if (drinkKey) window.plusApplyDiuretic(drinkKey);
+		else if (kind === "drink") window.plusApplyDiuretic(window.plusLastDrinkKey || "");
+	};
+
+	/* Coffee / energy drinks / alcohol temporarily speed bladder fill. Water, juice and milk have no extra effect. */
+	const DIURETIC = {
+		coffee: [2.0, 90], tea: [1.3, 45], "travel cup": [2.0, 90],
+		"fizzy drink": [1.6, 75], "soft drink": [1.5, 60], "energy drink": [2.5, 120],
+		lemonade: [1.3, 45], "strawberry lemonade": [1.3, 45],
+		"beer mug": [1.8, 150], "beer bottle": [1.8, 120], "autumn ale": [1.8, 150],
+		"fruity ale": [1.8, 150], "winter ale": [1.8, 150], shandy: [1.5, 120],
+		cider: [1.7, 120], "hot cider": [1.6, 90], "travel cup cider": [1.7, 120],
+		"red wine": [1.6, 90], "white wine": [1.6, 90], champagne: [1.6, 75],
+		"strawberry cocktail": [1.7, 90], shot: [1.9, 60], whisky: [1.9, 60],
+		brandy: [1.9, 60], vodka: [1.9, 60], scotch: [1.9, 60],
+	};
+	window.plusDiureticInfo = DIURETIC;
+	window.plusApplyDiuretic = function (key) {
+		const V = State.variables;
+		if (!V || !key) return false;
+		const d = DIURETIC[String(key).toLowerCase().replace(/_/g, " ").trim()];
+		if (!d) return false;
+		if (!(V.plusDiureticMin > 0) || d[0] >= (V.plusDiureticMul || 1)) {
+			V.plusDiureticMul = d[0];
+			V.plusDiureticMin = Math.max(V.plusDiureticMin || 0, d[1]);
+		} else {
+			V.plusDiureticMin = Math.max(V.plusDiureticMin, Math.round(d[1] * 0.5));
+		}
+		return true;
 	};
 
 	window.plusNeedsToilet = function (which = "both") {
@@ -330,7 +427,7 @@ window.plusNowTs = function () {
 		// Bladder is always emptied; bowels only when you need to go ("should find a toilet soon" or worse).
 		const S = stats();
 		const G = V.plusGrace || (V.plusGrace = {});
-		if (which !== "bowels") window.plusContinenceXP(window.plusContinenceReliefXP(V.plusBladder));
+		if (which !== "bowels") window.plusContinenceXP(window.plusContinenceReliefXP(V.plusBladder) + window.plusScheduleBonus(V.plusBladder));
 		if (which === "bowels" || (which !== "bladder" && V.plusBowels < 1000)) window.plusContinenceXP(window.plusContinenceReliefXP(V.plusBowels));
 		for (const k of ["plusBladder", "plusBowels"]) { G[k] = 0; if (V.plusHoldNote) V.plusHoldNote[k] = 0; }
 		if (which !== "bowels") {
@@ -382,7 +479,8 @@ window.plusNowTs = function () {
 			const ml = Number.isFinite(ML[key]) ? ML[key] : v[1] > 0 ? (v[0] > 0 ? ML["meal drink"] : ML.tap) : 0;
 			// Mostly-liquid props (milkshake, hot cocoa, milk) count as drinks, not snacks.
 			const kind = v[1] > v[0] ? "drink" : v[0] > 0 && v[0] < 500 ? "snack" : undefined;
-			window.plusNeedsConsume(kind === "snack" ? v[0] * SNACK_MUL : v[0], v[1] * DRINK_SCALE, kind, ml);
+			window.plusLastDrinkKey = v[1] > 0 ? key : "";
+			window.plusNeedsConsume(kind === "snack" ? v[0] * SNACK_MUL : v[0], v[1] * DRINK_SCALE, kind, ml, key);
 		} catch (e) {
 			console.warn("plusNeedsProp", e);
 		}
@@ -1150,6 +1248,7 @@ window.plusNowTs = function () {
 			T.plusLeakPoop = amt > 0 ? (amt - took) / amt : 0;
 			if (took > 0) it.plusDirt = Math.min(2000, (it.plusDirt || 0) + 250);
 		}
+		if ((T.plusLeakPee < 1 && which !== "plusBowels") || (T.plusLeakPoop < 1 && which !== "plusBladder")) S.accDiaper = (S.accDiaper || 0) + 1;
 		if (d.single) it.plusSpent = true; // first significant use saturates a single-use pull-up
 		init(it);
 		const lw = T.plusLeakPee > 0.001, ls = T.plusLeakPoop > 0.001;
@@ -1258,6 +1357,57 @@ window.plusNowTs = function () {
 	window.plusDiaperCanDispose = function () {
 		const it = window.plusDiaperWorn();
 		return !!it && !def(it).cloth && (it.plusMl > 0 || it.plusLb > 0 || !!it.plusSpent);
+	};
+	window.plusDiaperDispose = function () {
+		if (!window.plusDiaperCanDispose()) return false;
+		window.plusNeedsStats().diapersUsed++;
+		return true;
+	};
+	/* Clean unused spare diapers in the (selected) wardrobe. Used/spent copies don't count. */
+	window.plusDiaperSpareCount = function () {
+		const V = State.variables;
+		let list = [];
+		try { const w = typeof selectWardrobe === "function" ? selectWardrobe() : V.wardrobe; list = (w && w.under_lower) || []; } catch (e) { list = (V.wardrobe && V.wardrobe.under_lower) || []; }
+		let n = 0;
+		for (const it of list) {
+			if (!it || !def(it)) continue;
+			init(it);
+			if (!it.plusSpent && !(it.plusMl > 0) && !(it.plusLb > 0)) n++;
+		}
+		return n;
+	};
+	window.plusSupplyWarn = function () {
+		const V = State.variables;
+		if (!V || V.intro) return "";
+		const n = window.plusDiaperSpareCount();
+		const relevant = !!window.plusDiaperWorn() || n > 0 || (V.background && V.background.incontinent) || (window.plusNeedsStats().diapersUsed > 0);
+		if (!relevant || n > 2) return "";
+		const d = window.plusDayKey();
+		if (V.plusSupplyWarnDay === d) return "";
+		V.plusSupplyWarnDay = d;
+		return n <= 0 ? "You're out of clean spare diapers." : `You're running low on clean spare diapers (${n} left).`;
+	};
+	window.plusDiaperPackPrice = function (name, count) {
+		const d = DEF[name];
+		if (!d || !(count > 0)) return null;
+		const disc = count >= 10 ? 0.3 : count >= 5 ? 0.2 : 0;
+		return { name, count, disc, unit: d.cost, price: Math.round(d.cost * count * (1 - disc)) };
+	};
+	window.plusDiaperBuyPack = function (name, count) {
+		const V = State.variables, info = window.plusDiaperPackPrice(name, count);
+		if (!info) return { ok: false, reason: "item" };
+		if (!Number.isFinite(V.money) || V.money < info.price) return { ok: false, reason: "money", ...info };
+		const tpl = setup.clothes.under_lower.find(c => c.name === name);
+		if (!tpl || !V.wardrobe || !Array.isArray(V.wardrobe.under_lower)) return { ok: false, reason: "wardrobe", ...info };
+		for (let i = 0; i < count; i++) {
+			const it = JSON.parse(JSON.stringify(tpl));
+			window.plusDiaperInit(it);
+			it.colour = (it.colour_options && it.colour_options[0]) || it.colour;
+			V.wardrobe.under_lower.push(it);
+		}
+		if (typeof statChange !== "undefined" && statChange.money) statChange.money(-info.price, "plusneeds");
+		else V.money -= info.price;
+		return { ok: true, ...info };
 	};
 	/* "Incontinent" background: Leaky continence, a pull-up worn instead of underwear and 5 spares in the wardrobe. */
 	window.plusIncontinentStart = function () {
