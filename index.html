@@ -16845,11 +16845,12 @@ window.plusNowTs = function () {
 
 	/* ---- Continence: level 0-6 (start 3), XP -600..+600 per level. ----
 	 * Level 0-2: accident rolls start once the bar falls below a threshold (1800 / 1200 / 600).
-	 *   Per point the bar drops below the threshold, chance = h * (1 - v/threshold)^2: ~0 at the threshold, max near 0.
+	 *   Per point the bar drops below the threshold, hazard = h * (1 - v/threshold): small at the threshold, rising linearly to max at 0.
+ *   Tuned so the median accident lands around bar ~1000 / ~500 / ~200 and an accident before 0 is ~97% / ~87% / ~79% likely.
 	 * Level 3: accident only at 0. Level 4-6: hold on at 0 for 30 / 60 / 120 in-game minutes, then accident. */
 	const CONT_NAMES = ["Leaky", "Weak", "Unreliable", "Normal", "Strong", "Iron", "Steel"];
 	const CONT_EARLY_THRESHOLD = [1800, 1200, 600, 0, 0, 0, 0];
-	const CONT_HAZARD = [0.0038, 0.0023, 0.0018];
+	const CONT_HAZARD = [0.0038, 0.0034, 0.0052];
 	const CONT_GRACE = [0, 0, 0, 0, 30, 60, 120];
 	const CONT_XP_STEP = 600;
 	const CONT_HOLD_BELOW = 300;
@@ -16860,7 +16861,7 @@ window.plusNowTs = function () {
 		const thr = CONT_EARLY_THRESHOLD[lvl] || 0;
 		if (!(thr > 0) || v >= thr) return 0;
 		const x = 1 - Math.max(0, v) / thr;
-		return 1 - Math.exp(-CONT_HAZARD[lvl] * x * x * drop);
+		return 1 - Math.exp(-CONT_HAZARD[lvl] * x * drop);
 	};
 	window.plusContinenceLevel = function () {
 		const V = State.variables;
