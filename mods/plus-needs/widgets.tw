@@ -662,17 +662,17 @@ You take off your used _pnName, wrap it up and drop it in the bin. You feel clea
 	<<run plusDiaperInitInsecurity()>>
 	<<set _plusUnlockDiaper to plusDiaperUnlockAttitudes()>>
 	<<if _plusUnlockDiaper or $uncomfortable.diaperSeen is false>>
-		<label><<checkbox "$uncomfortable.diaperSeen" false true autocheck>> I'm uncomfortable having my diaper seen</label>
+		<label><<checkbox "$uncomfortable.diaperSeen" false true autocheck>> Having your diaper seen by others</label>
 	<<else>>
-		<input type="checkbox" checked disabled /> <span class="black">I'm uncomfortable having my diaper seen</span>
+		<input type="checkbox" checked disabled /> <span class="black">Having your diaper seen by others</span>
 		<br>
 		<span class="blue small-description"><i>Requires higher exhibitionism or diaper acceptance.</i></span>
 	<</if>>
 	<br>
 	<<if _plusUnlockDiaper or $uncomfortable.diaperUse is false>>
-		<label><<checkbox "$uncomfortable.diaperUse" false true autocheck>> I'm uncomfortable peeing and messing in my diaper near others</label>
+		<label><<checkbox "$uncomfortable.diaperUse" false true autocheck>> Peeing and messing in your diaper in front of others</label>
 	<<else>>
-		<input type="checkbox" checked disabled /> <span class="black">I'm uncomfortable peeing and messing in my diaper near others</span>
+		<input type="checkbox" checked disabled /> <span class="black">Peeing and messing in your diaper in front of others</span>
 		<br>
 		<span class="blue small-description"><i>Requires higher exhibitionism or diaper acceptance.</i></span>
 	<</if>>
