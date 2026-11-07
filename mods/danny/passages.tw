@@ -29,8 +29,6 @@ In the canteen Danny nearly bumps into you.
 
 :: Widgets Danny [widget danny]
 <<widget "dannyroom_link">>
-  <<if C.npc.Danny && C.npc.Danny.init is 1>>
-    <<bedroomicon>><<link [[Danny's room (0:01)|Danny Room Door]]>><<pass 1>><</link>>
-    <br>
-  <</if>>
+  <<bedroomicon>><<link [[Danny's room (0:01)|Danny Room Door]]>><<pass 1>><</link>>
+  <br>
 <</widget>>
