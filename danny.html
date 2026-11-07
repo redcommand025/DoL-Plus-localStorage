@@ -60,8 +60,13 @@
 
         if (typeof win.Story !== "undefined" && typeof win.Story.add === "function") {
           function addP(name, content) {
-            if (win.Story.has(name)) return;
-            try { win.Story.add({ name: name, tags: "danny", content: content }); } catch (e) {}
+            try {
+              if (!win.Story.has(name)) {
+                win.Story.add({ name: name, tags: "danny", content: content });
+              }
+            } catch (e) {
+              console.warn("Danny passage add failed", name, e);
+            }
           }
           addP("Danny Room Door",
             '<<if $time gte 1260 or $time lt 420>>\n' +
@@ -99,12 +104,18 @@
             div.innerHTML = '<a href="javascript:void(0)" style="color:#8cf;display:block;padding:4px;">Danny Room</a>';
             div.querySelector("a").onclick = function() {
               try {
+                if (!win.Story || !win.Story.has("Danny Room")) {
+                  alert("Danny Room passage not ready yet");
+                  return;
+                }
                 if (win.SugarCube && win.SugarCube.State && win.SugarCube.State.display) {
                   win.SugarCube.State.display("Danny Room");
                 } else if (win.State && win.State.display) {
                   win.State.display("Danny Room");
+                } else if (win.Engine && win.Engine.play) {
+                  win.Engine.play("Danny Room");
                 }
-              } catch(e) {}
+              } catch(e) { alert("Jump error: " + e.message); }
             };
             barBody.appendChild(div);
           }
