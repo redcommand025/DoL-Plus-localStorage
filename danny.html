@@ -23,7 +23,7 @@
       try {
         var win = frame.contentWindow;
         if (!win || !win.document) throw new Error("no win");
-        if (typeof win.setup === "undefined" || typeof win.State === "undefined" || typeof win.registerModLI !== "function") {
+        if (typeof win.setup === "undefined" || typeof win.State === "undefined" || typeof win.registerModLI !== "function" || typeof win.Story === "undefined") {
           if (tries < 200) {
             setTimeout(inject, 300);
             bar.textContent = "Waiting for game… (" + tries + ")";
@@ -33,10 +33,10 @@
           return;
         }
 
-        // Direct registration (same as Poppy)
+        // Register like Poppy
         win.registerModLI("Danny");
 
-        // Also ensure slot via newNamedNpc if Wikifier exists
+        // Ensure slot
         if (typeof win.Wikifier !== "undefined" && win.State.variables) {
           var V = win.State.variables;
           if (!Array.isArray(V.NPCNameList)) V.NPCNameList = [];
@@ -47,18 +47,26 @@
           }
         }
 
-        var avail = (win.getAvailableModLIs && win.getAvailableModLIs()) || [];
-        bar.textContent = "Registered. Available: " + (avail.length ? avail.join(", ") : "(none)");
+        // Add test passages
+        if (typeof win.Story.add === "function") {
+          if (!win.Story.has("Danny Room")) {
+            win.Story.add({
+              name: "Danny Room",
+              tags: "danny",
+              content: 'Danny\\\'s room.\\n<<npc "Danny">> looks up.\\n<<link "Talk">><<love "Danny" 2>><<goto "Danny Room">><</link>>\\n<<link "Control training">><<set $danny.control += 5>><<love "Danny" 3>><<goto "Danny Room">><</link>>\\n<<link "Dependency care">><<set $danny.dependency += 5>><<love "Danny" 4>><<goto "Danny Room">><</link>>\\n<<link "Leave">><<goto "Orphanage Hallway">><</link>>'
+            });
+          }
+          if (!win.Story.has("Danny Room Door")) {
+            win.Story.add({
+              name: "Danny Room Door",
+              tags: "danny",
+              content: '<<if $time gte 1260 or $time lt 420>>\\n  A note: "Sleeping."\\n  <<link "Wait">><<set $time to 420>><<goto "Danny Room Door">><</link>>\\n<<elseif $schoolDay and $time gte 480 and $time lt 900>>\\n  A note: "At school."\\n  <<link "Leave">><<goto "Orphanage Hallway">><</link>>\\n<<else>>\\n  <<link "Enter">><<goto "Danny Room">><</link>>\\n  <<link "Leave">><<goto "Orphanage Hallway">><</link>>\\n<</if>>'
+            });
+          }
+        }
 
-        // Force settings panel refresh if it exists
-        setTimeout(function () {
-          try {
-            if (win.Wikifier && win.document.getElementById("modLISettingsPanel")) {
-              win.Wikifier.wikifyEval('<<replace #modLISettingsPanel>><<modLISettingsSection>><</replace>>');
-              bar.textContent += "\nPanel refreshed.";
-            }
-          } catch (e) {}
-        }, 500);
+        var avail = (win.getAvailableModLIs && win.getAvailableModLIs()) || [];
+        bar.textContent = "Registered. Available: " + (avail.length ? avail.join(", ") : "(none)") + "\\nPassages: Danny Room, Danny Room Door";
 
       } catch (e) {
         if (tries < 200) {
