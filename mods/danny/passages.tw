@@ -4,10 +4,10 @@
   <<link "Wait until morning">><<set $time to 420>><<goto "Danny Room Door">><</link>>
 <<elseif $schoolDay and $time gte 480 and $time lt 900>>
   A note: "At school. Back later."
-  <<link "Leave">><<goto "Orphanage Hallway">><</link>>
+  <<link "Leave">><<goto "Bedroom">><</link>>
 <<else>>
   <<link "Knock and enter">><<goto "Danny Room">><</link>>
-  <<link "Leave">><<goto "Orphanage Hallway">><</link>>
+  <<link "Leave">><<goto "Bedroom">><</link>>
 <</if>>
 
 :: Danny Room [danny]
@@ -20,9 +20,17 @@ You enter Danny's room. <<npc "Danny">> looks up.
 <<link "Talk">><<love "Danny" 2>><<goto "Danny Room">><</link>>
 <<link "Help with control training">><<set $danny.control += 5>><<love "Danny" 3>><<goto "Danny Room">><</link>>
 <<link "Offer dependency care">><<set $danny.dependency += 5>><<love "Danny" 4>><<goto "Danny Room">><</link>>
-<<link "Leave">><<goto "Orphanage Hallway">><</link>>
+<<link "Leave">><<goto "Bedroom">><</link>>
 
 :: Danny First Meeting Canteen [danny]
 In the canteen Danny nearly bumps into you.
 "S-sorry! I'm Danny. We both live at the orphanage, right?"
 <<link "Continue">><<set $dannyIntro to 1>><<goto "School Canteen">><</link>>
+
+:: Widgets Danny [widget danny]
+<<widget "dannyroom_link">>
+  <<if C.npc.Danny && C.npc.Danny.init is 1>>
+    <<bedroomicon>><<link [[Danny's room (0:01)|Danny Room Door]]>><<pass 1>><</link>>
+    <br>
+  <</if>>
+<</widget>>
