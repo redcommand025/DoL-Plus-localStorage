@@ -110626,6 +110626,7 @@ registerModLI("Poppy");
 
 
 
+
 /* twine-user-script #189: "game/base-clothing/ClothesItem.js" */
 class ClothesItem {
 	/* Index of Clothing | REQUIRED | MUST BE UNIQUE TO SLOT | INT */
@@ -976283,19 +976284,38 @@ You enter Danny&#39;s room.
 
 
 
+
 <script id="script-module-danny">/*danny*/
 (function () {
   "use strict";
+  var fullyReady = false;
+
+  function isInGame() {
+    try {
+      var p = State && State.passage;
+      return p && p !== "Start" && p !== "Start2" && p !== "Tutorial" && p !== "Character Creation";
+    } catch (e) { return false; }
+  }
+
   function ensureDanny() {
     if (typeof setup === "undefined" || typeof State === "undefined" || !State.variables) return false;
     var V = State.variables;
-    if (!Array.isArray(setup.NPCNameList)) return false;
-    if (!Array.isArray(V.NPCNameList)) V.NPCNameList = [];
-    if (!Array.isArray(V.NPCName)) V.NPCName = [];
 
+    // Always safe: mod LI registry + loveAlias
     if (typeof window.registerModLI === "function") {
       try { window.registerModLI("Danny"); } catch (e) {}
     }
+    if (!setup.loveAlias) setup.loveAlias = {};
+    if (typeof setup.loveAlias.Danny !== "function") {
+      setup.loveAlias.Danny = function () { return "Love"; };
+    }
+
+    // Only touch NPC lists once we're past the Start/Tutorial screens
+    if (!isInGame()) return true;
+    if (fullyReady) return true;
+    if (!Array.isArray(setup.NPCNameList)) return false;
+    if (!Array.isArray(V.NPCNameList)) V.NPCNameList = [];
+    if (!Array.isArray(V.NPCName)) V.NPCName = [];
 
     if (setup.NPCNameList.indexOf("Danny") === -1) {
       setup.NPCNameList.push("Danny");
@@ -976304,33 +976324,27 @@ You enter Danny&#39;s room.
     var idx = V.NPCNameList.indexOf("Danny");
     if (idx === -1) {
       V.NPCNameList.push("Danny");
-      var slot = {
+      V.NPCName.push({
         nam: "Danny", description: "Danny", title: "dependent", insecurity: "weak",
         pronoun: "f", gender: "f", adult: 0, teen: 1, type: "human",
         init: 1, intro: 0, aware: 0, love: 0, lust: 0, dom: 0,
         trust: 0, trauma: 0, rage: 0, purity: 0, corruption: 0,
         penis: 0, vagina: 1, maxOrgasms: 1,
         chastity: { penis: "", vagina: "", anus: "" }
-      };
-      V.NPCName.push(slot);
+      });
     }
 
     if (typeof window.initCNPC === "function") {
       try { window.initCNPC(); } catch (e) {}
     }
 
-    // Social tab needs a loveAlias function
-    if (!setup.loveAlias) setup.loveAlias = {};
-    if (typeof setup.loveAlias.Danny !== "function") {
-      setup.loveAlias.Danny = function () { return "Love"; };
-    }
-
+    fullyReady = true;
     return true;
   }
 
   function tryInit() {
-    if (ensureDanny()) return;
-    setTimeout(tryInit, 300);
+    ensureDanny();
+    if (!fullyReady) setTimeout(tryInit, 500);
   }
 
   if (document.readyState === "loading") {
