@@ -1,110 +1,66 @@
 /**
- * Danny – safe post-init registration
- * Registers via setup.modLIRegistry and ensures an $NPCName slot.
- * Only runs after SugarCube / State / setup exist.
- * Hard retry limit. No arguments.callee. No early side effects.
+ * Danny – safe post-init registration via official modLI API
+ * Calls registerModLI("Danny") so it appears in the Mod-exclusive LI section.
+ * Hard retry limit. No early side effects.
  */
 (function () {
   "use strict";
 
   var attempts = 0;
-  var MAX = 50;
+  var MAX = 60;
+  var registered = false;
 
   function ready() {
     return typeof setup !== "undefined" &&
            typeof State !== "undefined" && State.variables &&
-           typeof Story !== "undefined";
+           typeof window.registerModLI === "function";
   }
 
-  function registerDanny() {
-    var NAME = "Danny";
-
-    // 1. modLIRegistry (molded / modded love interest path)
-    if (!Array.isArray(setup.modLIRegistry)) setup.modLIRegistry = [];
-    if (setup.modLIRegistry.indexOf(NAME) === -1) {
-      setup.modLIRegistry.push(NAME);
+  function doRegister() {
+    if (registered) return;
+    try {
+      window.registerModLI("Danny");
+      // Ensure unlocks object exists
+      var V = State.variables;
+      if (!V.modLIUnlocks || typeof V.modLIUnlocks !== "object") V.modLIUnlocks = {};
+      // Do not auto-activate; leave it available for the user to click in the settings panel
+      registered = true;
+      console.log("[Danny] registerModLI complete. Available:", window.getAvailableModLIs && window.getAvailableModLIs());
+    } catch (e) {
+      console.warn("[Danny] registerModLI failed:", e);
     }
-
-    // Metadata for any CONFIGS / guarantor that looks for it
-    setup.dannyMetadata = {
-      title: "dependent",
-      insecurity: "weak",
-      adult: 0,
-      teen: 1,
-      type: "human"
-    };
-
-    var V = State.variables;
-    if (!Array.isArray(V.NPCNameList)) V.NPCNameList = [];
-    if (!Array.isArray(V.NPCName)) V.NPCName = [];
-
-    if (V.NPCNameList.indexOf(NAME) === -1) {
-      V.NPCNameList.push(NAME);
-      V.NPCName.push({
-        nam: NAME,
-        init: 0, intro: 0, aware: 0, name_known: 0,
-        description: NAME, fullDescription: NAME,
-        pronoun: "f",
-        title: "dependent", insecurity: "weak",
-        adult: 0, teen: 1, type: "human",
-        love: 0, lust: 0, dom: 0, trauma: 0, rage: 0,
-        trust: 0, purity: 0, corruption: 0,
-        control: 30, dependency: 20,
-        bladder: 0, accidentCount: 0, diaperState: "dry",
-        virginity: { vaginal: true, penile: true, anal: true, oral: true, handholding: true },
-        timer: {}, maxOrgasms: 1, orgasm: 0, promiscuity: 0,
-        skincolour: "white", haircolour: "brown", eyecolour: "blue",
-        breastsize: 2, penissize: 0,
-        pregnancy: { type: "none", timer: 0, enabled: false, fetus: [] }
-      });
-    }
-
-    if (!V.modLIUnlocks || typeof V.modLIUnlocks !== "object") V.modLIUnlocks = {};
-    V.modLIUnlocks[NAME] = true;
-
-    // Minimal passages so the slot is usable
-    if (typeof Story.add === "function") {
-      if (!Story.has("Danny Room")) {
-        Story.add({
-          name: "Danny Room",
-          tags: "danny",
-          content: 'Danny\'s room.\n<<link "Leave">><<goto "Orphanage Hallway">><</link>>'
-        });
-      }
-      if (!Story.has("Danny First Meeting")) {
-        Story.add({
-          name: "Danny First Meeting",
-          tags: "danny",
-          content: '<<npc "Danny">> looks up. "Hey... I\'m Danny."\n<<link "Continue">><<goto "Orphanage Main Hall">><</link>>'
-        });
-      }
-    }
-
-    console.log("[Danny] Registered via modLIRegistry");
   }
 
   function tryInit() {
     attempts++;
     if (ready()) {
-      try {
-        registerDanny();
-      } catch (e) {
-        console.warn("[Danny] Registration failed:", e);
-      }
+      doRegister();
       return;
     }
     if (attempts < MAX) {
-      setTimeout(tryInit, 400);
+      setTimeout(tryInit, 500);
     } else {
-      console.warn("[Danny] Timed out waiting for game");
+      console.warn("[Danny] Timed out waiting for modLI API");
     }
   }
 
+  // Also re-register if the settings panel is refreshed later
+  if (typeof window.ensureModLISettings === "function") {
+    var orig = window.ensureModLISettings;
+    window.ensureModLISettings = function () {
+      var ret = orig.apply(this, arguments);
+      if (typeof window.registerModLI === "function") {
+        try { window.registerModLI("Danny"); } catch (e) {}
+      }
+      return ret;
+    };
+  }
+
   if (document.readyState === "complete" || document.readyState === "interactive") {
-    setTimeout(tryInit, 100);
+    setTimeout(tryInit, 200);
   } else {
     document.addEventListener("DOMContentLoaded", function () {
-      setTimeout(tryInit, 100);
+      setTimeout(tryInit, 200);
     });
   }
 })();
