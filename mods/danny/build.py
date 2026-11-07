@@ -49,15 +49,7 @@ def main():
     if anchor in s:
         s = s.replace(anchor, anchor + "\n" + mark('registerModLI("Danny");'), 1)
 
-    # Add Danny to setup.NPCNameList
-    npc_list_anchor = 'setup.NPCNameList = ['
-    if npc_list_anchor in s:
-        # Find the closing of the array and insert before it
-        idx = s.find(npc_list_anchor)
-        end = s.find("];", idx)
-        if end > 0:
-            s = s[:end] + ', "Danny"' + s[end:]
-
+    
     # Add passages
     pid = max(int(x) for x in re.findall(r'<tw-passagedata pid="(\d+)"', s))
     new = ""
