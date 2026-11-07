@@ -66,6 +66,19 @@
           );
         }
 
+        // Inject Danny link into cheats teleport if present
+        try {
+          var cheatDiv = win.document.querySelector(".settingsHeader.options");
+          if (cheatDiv && !win.document.getElementById("danny-cheat-link")) {
+            var link = win.document.createElement("div");
+            link.id = "danny-cheat-link";
+            link.innerHTML = '<br><span class="gold">Danny (Test)</span><br>' +
+              '<a href="javascript:void(0)" onclick="SugarCube.State.display(\'Danny Room Door\')">Danny Room Door</a><br>' +
+              '<a href="javascript:void(0)" onclick="SugarCube.State.display(\'Danny Room\')">Danny Room</a>';
+            cheatDiv.parentNode.insertBefore(link, cheatDiv.nextSibling);
+          }
+        } catch (e) {}
+
         // Persistent watcher: re-register on every passage or if registry is cleared
         if (!win._dannyWatcher) {
           win._dannyWatcher = setInterval(function () {
