@@ -12,17 +12,22 @@ A note: "At school. Back later."
 
 :: Danny Room [danny]
 <<if C.npc.Danny is undefined>>
-  <<newNamedNpc {nam: "Danny", title: "dependent", insecurity: "weak", teen: 1, adult: 0, type: "human", pronoun: "f", gender: "f"}>>
+  <<run window.initCNPC && window.initCNPC()>>
 <</if>>
-You enter Danny's room. <<npc "Danny">> looks up.
-<<if $dannyIntro isnot 1>>
-  <<set $dannyIntro to 1>>
-  "H-hey... I'm Danny. I live here too. I have a weak bladder. Please don't tell Bailey."
-  <<love "Danny" 5>>
+You enter Danny's room.
+<<if C.npc.Danny>>
+  <<npc "Danny">> looks up.
+  <<if $dannyIntro isnot 1>>
+    <<set $dannyIntro to 1>>
+    "H-hey... I'm Danny. I live here too. I have a weak bladder. Please don't tell Bailey."
+    <<love "Danny" 5>>
+  <</if>>
+  <<link [[Talk|Danny Room]]>><<love "Danny" 2>><</link>>
+  <<link [[Help with control training|Danny Room]]>><<set $danny.control += 5>><<love "Danny" 3>><</link>>
+  <<link [[Offer dependency care|Danny Room]]>><<set $danny.dependency += 5>><<love "Danny" 4>><</link>>
+<<else>>
+  Danny isn't fully set up yet.
 <</if>>
-<<link [[Talk|Danny Room]]>><<love "Danny" 2>><</link>>
-<<link [[Help with control training|Danny Room]]>><<set $danny.control += 5>><<love "Danny" 3>><</link>>
-<<link [[Offer dependency care|Danny Room]]>><<set $danny.dependency += 5>><<love "Danny" 4>><</link>>
 <<link [[Leave|Bedroom]]>><</link>>
 
 :: Danny First Meeting Canteen [danny]
