@@ -20,11 +20,11 @@ You enter Danny's room.
   <<if $dannyIntro isnot 1>>
     <<set $dannyIntro to 1>>
     "H-hey... I'm Danny. I live here too. I have a weak bladder. Please don't tell Bailey."
-    <<love "Danny" 5>>
+    <<npcincr Danny love 5>>
   <</if>>
-  <<link [[Talk|Danny Room]]>><<love "Danny" 2>><</link>>
-  <<link [[Help with control training|Danny Room]]>><<set $danny.control += 5>><<love "Danny" 3>><</link>>
-  <<link [[Offer dependency care|Danny Room]]>><<set $danny.dependency += 5>><<love "Danny" 4>><</link>>
+  <<link [[Talk|Danny Room]]>><<npcincr Danny love 2>><</link>>
+  <<link [[Help with control training|Danny Room]]>><<set $danny.control += 5>><<npcincr Danny love 3>><</link>>
+  <<link [[Offer dependency care|Danny Room]]>><<set $danny.dependency += 5>><<npcincr Danny love 4>><</link>>
 <<else>>
   Danny isn't fully set up yet.
 <</if>>

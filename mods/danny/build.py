@@ -42,6 +42,9 @@ def main():
     s = re.sub(r'<tw-passagedata[^>]*tags="[^"]*danny[^"]*"[^>]*>.*?</tw-passagedata>', "", s, flags=re.S)
 
     # Inject dannyroom_link calls after robinroom_link
+    # Remove any previous dannyroom_link injections so we don't stack them
+    s = s.replace(chr(38)+"lt;"+chr(38)+"lt;dannyroom_link"+chr(38)+"gt;"+chr(38)+"gt;", "")
+    # Now inject once after each robinroom_link
     s = s.replace(chr(38)+"lt;"+chr(38)+"lt;robinroom_link"+chr(38)+"gt;"+chr(38)+"gt;", chr(38)+"lt;"+chr(38)+"lt;robinroom_link"+chr(38)+"gt;"+chr(38)+"gt;"+chr(38)+"lt;"+chr(38)+"lt;dannyroom_link"+chr(38)+"gt;"+chr(38)+"gt;")
 
     # Inject registerModLI call after the existing Poppy registration
