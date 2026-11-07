@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>DoL+ Danny Test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { margin: 0; background: #111; color: #eee; font-family: sans-serif; }
+    #bar { padding: 8px; background: #222; font-size: 14px; }
+    iframe { width: 100%; height: calc(100vh - 40px); border: none; }
+  </style>
+</head>
+<body>
+  <div id="bar">Loading game + Danny…</div>
+  <iframe id="game" src="index.html"></iframe>
+  <script>
+    var frame = document.getElementById("game");
+    var bar = document.getElementById("bar");
+    var tries = 0;
+
+    function inject() {
+      tries++;
+      try {
+        var win = frame.contentWindow;
+        if (!win || !win.document) throw new Error("no win");
+        // Wait until the game has SugarCube-ish globals
+        if (typeof win.setup === "undefined" || typeof win.State === "undefined" || typeof win.registerModLI !== "function") {
+          if (tries < 120) {
+            setTimeout(inject, 500);
+            bar.textContent = "Waiting for game… (" + tries + ")";
+            return;
+          }
+          bar.textContent = "Timed out waiting for game";
+          return;
+        }
+        // Inject the safe loader
+        var s = win.document.createElement("script");
+        s.src = "danny-safe-loader.js";
+        s.onload = function () {
+          bar.textContent = "Danny loader injected. Check exclusive LI section.";
+        };
+        s.onerror = function () {
+          bar.textContent = "Failed to load danny-safe-loader.js";
+        };
+        win.document.body.appendChild(s);
+      } catch (e) {
+        if (tries < 120) {
+          setTimeout(inject, 500);
+          bar.textContent = "Waiting… (" + tries + ")";
+        } else {
+          bar.textContent = "Error: " + e.message;
+        }
+      }
+    }
+
+    frame.onload = function () {
+      bar.textContent = "Game frame loaded, waiting for init…";
+      setTimeout(inject, 1000);
+    };
+  </script>
+</body>
+</html>
