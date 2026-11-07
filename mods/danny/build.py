@@ -64,8 +64,9 @@ def main():
 
     # Inject the small JS module
     js = open(os.path.join(HERE, "danny.js"), encoding="utf-8").read()
-    script = '<script id="script-module-danny">%s</script>' % js
-    s = s.replace("</body>", script + "\n</body>", 1)
+    # script = '<script id="script-module-danny">%s</script>' % js
+    # s = s.replace("</body>", script + "\n</body>", 1)
+    print("Danny script injection disabled for testing")
 
     for o in OUTS:
         open(o, "w", encoding="utf-8").write(s)
