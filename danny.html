@@ -16,109 +16,96 @@
   <script>
     var frame = document.getElementById("game");
     var bar = document.getElementById("bar");
-    var tries = 0;
+    var injected = false;
 
-    function inject() {
-      tries++;
+    function ensureDanny(win) {
       try {
-        var win = frame.contentWindow;
-        if (!win || !win.document) throw new Error("no win");
-        if (typeof win.setup === "undefined" || typeof win.State === "undefined" || typeof win.registerModLI !== "function" || typeof win.Story === "undefined") {
-          if (tries < 200) {
-            setTimeout(inject, 300);
-            bar.textContent = "Waiting for game… (" + tries + ")";
-            return;
-          }
-          bar.textContent = "Timed out";
-          return;
-        }
-
-        // Register (same as Poppy)
+        if (typeof win.registerModLI !== "function") return false;
         win.registerModLI("Danny");
 
-        var V = win.State.variables;
-        if (!Array.isArray(V.NPCNameList)) V.NPCNameList = [];
-        if (!Array.isArray(V.NPCName)) V.NPCName = [];
-
-        if (V.NPCNameList.indexOf("Danny") === -1 && typeof win.Wikifier !== "undefined") {
-          try {
-            win.Wikifier.wikifyEval('<<newNamedNpc {nam: "Danny", title: "dependent", insecurity: "weak", teen: 1, adult: 0, type: "human", pronoun: "f", gender: "f", maxOrgasms: 1}>>');
-          } catch (e) {}
+        var V = win.State && win.State.variables;
+        if (V) {
+          if (!Array.isArray(V.NPCNameList)) V.NPCNameList = [];
+          if (!Array.isArray(V.NPCName)) V.NPCName = [];
+          if (V.NPCNameList.indexOf("Danny") === -1 && typeof win.Wikifier !== "undefined") {
+            try {
+              win.Wikifier.wikifyEval('<<newNamedNpc {nam: "Danny", title: "dependent", insecurity: "weak", teen: 1, adult: 0, type: "human", pronoun: "f", gender: "f", maxOrgasms: 1}>>');
+            } catch (e) {}
+          }
         }
 
-        // Skeleton passages
-        function addP(name, content) {
-          if (win.Story.has(name)) return;
-          try { win.Story.add({ name: name, tags: "danny", content: content }); } catch (e) {}
+        // Skeleton passages (idempotent)
+        if (typeof win.Story !== "undefined" && typeof win.Story.add === "function") {
+          function addP(name, content) {
+            if (win.Story.has(name)) return;
+            try { win.Story.add({ name: name, tags: "danny", content: content }); } catch (e) {}
+          }
+          addP("Danny Room Door",
+            '<<if $time gte 1260 or $time lt 420>>\n' +
+            '  A note on the door: "Sleeping. Please don\'t wake me."\n' +
+            '  <<link "Wait until morning">><<set $time to 420>><<goto "Danny Room Door">><</link>>\n' +
+            '<<elseif $schoolDay and $time gte 480 and $time lt 900>>\n' +
+            '  A note: "At school. Back later."\n' +
+            '  <<link "Leave">><<goto "Orphanage Hallway">><</link>>\n' +
+            '<<else>>\n' +
+            '  <<link "Knock and enter">><<goto "Danny Room">><</link>>\n' +
+            '  <<link "Leave">><<goto "Orphanage Hallway">><</link>>\n' +
+            '<</if>>'
+          );
+          addP("Danny Room",
+            'You enter Danny\'s room. <<npc "Danny">> looks up.\n' +
+            '<<if $dannyIntro isnot 1>>\n' +
+            '  <<set $dannyIntro to 1>>\n' +
+            '  "H-hey... I\'m Danny. I live here too. I have a weak bladder. Please don\'t tell Bailey."\n' +
+            '  <<love "Danny" 5>>\n' +
+            '<</if>>\n' +
+            '<<link "Talk">><<love "Danny" 2>><<goto "Danny Room">><</link>>\n' +
+            '<<link "Help with control training">><<set $danny.control += 5>><<love "Danny" 3>><<goto "Danny Room">><</link>>\n' +
+            '<<link "Offer dependency care">><<set $danny.dependency += 5>><<love "Danny" 4>><<goto "Danny Room">><</link>>\n' +
+            '<<link "Leave">><<goto "Orphanage Hallway">><</link>>'
+          );
         }
 
-        addP("Danny Room Door",
-          '<<if $time gte 1260 or $time lt 420>>\n' +
-          '  A note on the door: "Sleeping. Please don\'t wake me."\n' +
-          '  <<link "Wait until morning">><<set $time to 420>><<goto "Danny Room Door">><</link>>\n' +
-          '<<elseif $schoolDay and $time gte 480 and $time lt 900>>\n' +
-          '  A note: "At school. Back later."\n' +
-          '  <<link "Leave">><<goto "Orphanage Hallway">><</link>>\n' +
-          '<<else>>\n' +
-          '  <<link "Knock and enter">><<goto "Danny Room">><</link>>\n' +
-          '  <<link "Leave">><<goto "Orphanage Hallway">><</link>>\n' +
-          '<</if>>'
-        );
+        // Persistent watcher: re-register on every passage or if registry is cleared
+        if (!win._dannyWatcher) {
+          win._dannyWatcher = setInterval(function () {
+            try {
+              if (typeof win.registerModLI === "function") {
+                if (!win.setup.modLIRegistry || win.setup.modLIRegistry.indexOf("Danny") === -1) {
+                  win.registerModLI("Danny");
+                }
+              }
+            } catch (e) {}
+          }, 2000);
+        }
 
-        addP("Danny Room",
-          'You enter Danny\'s room. <<npc "Danny">> looks up.\n' +
-          '<<if $dannyIntro isnot 1>>\n' +
-          '  <<set $dannyIntro to 1>>\n' +
-          '  "H-hey... I\'m Danny. I live here too. I have a weak bladder. Please don\'t tell Bailey."\n' +
-          '  <<love "Danny" 5>>\n' +
-          '<</if>>\n' +
-          '<<link "Talk">><<love "Danny" 2>><<goto "Danny Room">><</link>>\n' +
-          '<<link "Help with control training">><<set $danny.control += 5>><<love "Danny" 3>><<goto "Danny Room">><</link>>\n' +
-          '<<link "Offer dependency care">><<set $danny.dependency += 5>><<love "Danny" 4>><<goto "Danny Room">><</link>>\n' +
-          '<<link "Leave">><<goto "Orphanage Hallway">><</link>>'
-        );
-
-        addP("Danny First Meeting Canteen",
-          'In the canteen Danny nearly bumps into you.\n' +
-          '"S-sorry! I\'m Danny. We both live at the orphanage, right?"\n' +
-          '<<link "Continue">><<set $dannyIntro to 1>><<goto "School Canteen">><</link>>'
-        );
-
-        // Simple schedule helper
-        win.updateDannySchedule = function () {
-          if (typeof win.State === "undefined") return;
-          var V = win.State.variables;
-          var hour = Math.floor(V.time / 60);
-          V.dannySleeping = (hour >= 21 || hour < 7);
-          V.dannyAtSchool = (hour >= 8 && hour < 15 && V.schoolDay);
-        };
-
-        var avail = (win.getAvailableModLIs && win.getAvailableModLIs()) || [];
-        bar.textContent = "Danny ready. Available LIs: " + (avail.length ? avail.join(", ") : "(none)") +
-                          "\nTest passages: Danny Room Door, Danny Room";
-
-        // Force panel refresh
-        setTimeout(function () {
-          try {
-            if (win.Wikifier && win.document.getElementById("modLISettingsPanel")) {
-              win.Wikifier.wikifyEval('<<replace #modLISettingsPanel>><<modLISettingsSection>><</replace>>');
-            }
-          } catch (e) {}
-        }, 400);
-
+        return true;
       } catch (e) {
-        if (tries < 200) {
-          setTimeout(inject, 300);
-          bar.textContent = "Waiting… (" + tries + ")";
-        } else {
-          bar.textContent = "Error: " + e.message;
+        return false;
+      }
+    }
+
+    function tick() {
+      try {
+        var win = frame.contentWindow;
+        if (win && ensureDanny(win)) {
+          var avail = (win.getAvailableModLIs && win.getAvailableModLIs()) || [];
+          bar.textContent = "Danny active. Available: " + (avail.length ? avail.join(", ") : "(checking…)") +
+                            "\nWatcher running (survives title/restart).";
+          injected = true;
+        } else if (!injected) {
+          bar.textContent = "Waiting for game…";
         }
+      } catch (e) {
+        if (!injected) bar.textContent = "Waiting…";
       }
     }
 
     frame.onload = function () {
-      bar.textContent = "Game loaded, waiting for init…";
-      setTimeout(inject, 1000);
+      bar.textContent = "Game frame loaded…";
+      setTimeout(tick, 800);
+      // Keep checking so title-page returns / restarts get re-injected
+      setInterval(tick, 3000);
     };
   </script>
 </body>
