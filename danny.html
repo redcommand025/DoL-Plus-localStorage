@@ -24,32 +24,45 @@
         var win = frame.contentWindow;
         if (!win || !win.document) throw new Error("no win");
         if (typeof win.setup === "undefined" || typeof win.State === "undefined" || typeof win.registerModLI !== "function") {
-          if (tries < 150) {
-            setTimeout(inject, 400);
+          if (tries < 200) {
+            setTimeout(inject, 300);
             bar.textContent = "Waiting for game… (" + tries + ")";
             return;
           }
-          bar.textContent = "Timed out waiting for game";
+          bar.textContent = "Timed out";
           return;
         }
-        var s = win.document.createElement("script");
-        s.src = "danny-safe-loader.js?t=" + Date.now();
-        s.onload = function () {
-          bar.textContent = "Danny loader injected. Checking registration…";
-          setTimeout(function () {
+
+        // Direct registration (same as Poppy)
+        win.registerModLI("Danny");
+
+        // Also ensure slot via newNamedNpc if Wikifier exists
+        if (typeof win.Wikifier !== "undefined" && win.State.variables) {
+          var V = win.State.variables;
+          if (!Array.isArray(V.NPCNameList)) V.NPCNameList = [];
+          if (V.NPCNameList.indexOf("Danny") === -1) {
             try {
-              var avail = win.getAvailableModLIs && win.getAvailableModLIs();
-              bar.textContent = "Available LIs: " + (avail ? avail.join(", ") : "unknown");
-            } catch (e) {
-              bar.textContent = "Injected, but status check failed";
+              win.Wikifier.wikifyEval('<<newNamedNpc {nam: "Danny", title: "dependent", insecurity: "weak", teen: 1, adult: 0, type: "human", pronoun: "f", gender: "f", maxOrgasms: 1}>>');
+            } catch (e) {}
+          }
+        }
+
+        var avail = (win.getAvailableModLIs && win.getAvailableModLIs()) || [];
+        bar.textContent = "Registered. Available: " + (avail.length ? avail.join(", ") : "(none)");
+
+        // Force settings panel refresh if it exists
+        setTimeout(function () {
+          try {
+            if (win.Wikifier && win.document.getElementById("modLISettingsPanel")) {
+              win.Wikifier.wikifyEval('<<replace #modLISettingsPanel>><<modLISettingsSection>><</replace>>');
+              bar.textContent += "\nPanel refreshed.";
             }
-          }, 1500);
-        };
-        s.onerror = function () { bar.textContent = "Failed to load loader"; };
-        win.document.body.appendChild(s);
+          } catch (e) {}
+        }, 500);
+
       } catch (e) {
-        if (tries < 150) {
-          setTimeout(inject, 400);
+        if (tries < 200) {
+          setTimeout(inject, 300);
           bar.textContent = "Waiting… (" + tries + ")";
         } else {
           bar.textContent = "Error: " + e.message;
@@ -58,8 +71,8 @@
     }
 
     frame.onload = function () {
-      bar.textContent = "Game frame loaded, waiting for init…";
-      setTimeout(inject, 800);
+      bar.textContent = "Game loaded, waiting for init…";
+      setTimeout(inject, 1000);
     };
   </script>
 </body>
