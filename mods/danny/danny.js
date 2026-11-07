@@ -8,17 +8,14 @@
     if (!Array.isArray(V.NPCNameList)) V.NPCNameList = [];
     if (!Array.isArray(V.NPCName)) V.NPCName = [];
 
-    // Register as mod LI
     if (typeof window.registerModLI === "function") {
       try { window.registerModLI("Danny"); } catch (e) {}
     }
 
-    // Ensure in setup list (for future inits)
     if (setup.NPCNameList.indexOf("Danny") === -1) {
       setup.NPCNameList.push("Danny");
     }
 
-    // Ensure matching slot in V lists
     var idx = V.NPCNameList.indexOf("Danny");
     if (idx === -1) {
       V.NPCNameList.push("Danny");
@@ -31,12 +28,16 @@
         chastity: { penis: "", vagina: "", anus: "" }
       };
       V.NPCName.push(slot);
-      idx = V.NPCNameList.length - 1;
     }
 
-    // Make sure C.npc getter exists for Danny
     if (typeof window.initCNPC === "function") {
       try { window.initCNPC(); } catch (e) {}
+    }
+
+    // Social tab needs a loveAlias function
+    if (!setup.loveAlias) setup.loveAlias = {};
+    if (typeof setup.loveAlias.Danny !== "function") {
+      setup.loveAlias.Danny = function () { return "Love"; };
     }
 
     return true;
