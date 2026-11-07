@@ -43,7 +43,9 @@
         init: 1, intro: 0, aware: 0, love: 0, lust: 0, dom: 0,
         trust: 0, trauma: 0, rage: 0, purity: 0, corruption: 0,
         penis: 0, vagina: 1, maxOrgasms: 1,
-        chastity: { penis: "", vagina: "", anus: "" }
+        chastity: { penis: "", vagina: "", anus: "" },
+        virginity: { vaginal: true, penile: true, anal: true, kiss: true, handholding: true },
+        patience: 0, anger: 0
       });
     }
 
