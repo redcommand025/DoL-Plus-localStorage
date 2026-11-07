@@ -1,5 +1,6 @@
 /**
- * Danny – safe post-init registration + skeleton schedule/interactions
+ * Danny – safe post-init registration
+ * Creates a complete $NPCName slot so npcSettingsMenu does not crash.
  */
 (function () {
   "use strict";
@@ -16,13 +17,52 @@
            typeof Story !== "undefined";
   }
 
-  function addPassage(name, content) {
-    if (Story.has(name)) return;
-    try {
-      Story.add({ name: name, tags: "danny", content: content });
-    } catch (e) {
-      console.warn("[Danny] passage failed", name, e);
-    }
+  function makeFullSlot() {
+    // Match the fields npcSettingsMenu and baseNNPC expect
+    return {
+      nam: "Danny",
+      description: "Danny",
+      fullDescription: "Danny",
+      title: "dependent",
+      insecurity: "weak",
+      pronoun: "f",
+      gender: "f",
+      adult: 0,
+      teen: 1,
+      type: "human",
+      init: 0,
+      intro: 0,
+      aware: 0,
+      name_known: 0,
+      love: 0,
+      lust: 0,
+      dom: 0,
+      trauma: 0,
+      rage: 0,
+      trust: 0,
+      purity: 0,
+      corruption: 0,
+      penis: 0,
+      vagina: 1,
+      penissize: 0,
+      penisdesc: "none",
+      breastsize: 2,
+      breastdesc: 0,
+      breastsdesc: 0,
+      bottomsize: 0,
+      ballssize: 0,
+      maxOrgasms: 1,
+      orgasm: 0,
+      skincolour: "white",
+      eyeColour: "blue",
+      hairColour: "brown",
+      chastity: { penis: "", vagina: "", anus: "" },
+      control: 30,
+      dependency: 20,
+      bladder: 0,
+      diaperState: "dry",
+      accidentCount: 0
+    };
   }
 
   function registerDanny() {
@@ -31,6 +71,7 @@
 
     try { window.registerModLI(NAME); } catch (e) {}
 
+    // Keep setup.NPCNameList in sync
     if (setup.NPCNameList.indexOf(NAME) === -1) {
       setup.NPCNameList.push(NAME);
     }
@@ -39,61 +80,32 @@
     if (!Array.isArray(V.NPCNameList)) V.NPCNameList = [];
     if (!Array.isArray(V.NPCName)) V.NPCName = [];
 
-    if (V.NPCNameList.indexOf(NAME) === -1) {
+    var idx = V.NPCNameList.indexOf(NAME);
+    var slot = makeFullSlot();
+
+    if (idx === -1) {
       V.NPCNameList.push(NAME);
-      V.NPCName.push({
-        nam: NAME, description: NAME, title: "dependent", insecurity: "weak",
-        pronoun: "f", gender: "f", adult: 0, teen: 1, type: "human",
-        love: 0, lust: 0, init: 0, intro: 0, aware: 0,
-        control: 30, dependency: 20, bladder: 0, diaperState: "dry"
+      V.NPCName.push(slot);
+    } else {
+      // Patch existing slot so required fields exist
+      var existing = V.NPCName[idx] || {};
+      for (var k in slot) {
+        if (existing[k] === undefined) existing[k] = slot[k];
+      }
+      V.NPCName[idx] = existing;
+    }
+
+    // Skeleton passages (unchanged)
+    if (typeof Story.add === "function" && !Story.has("Danny Room")) {
+      Story.add({
+        name: "Danny Room",
+        tags: "danny",
+        content: 'Danny\\\'s room.\\n<<link "Leave">><<goto "Orphanage Hallway">><</link>>'
       });
     }
 
-    // Skeleton passages
-    addPassage("Danny Room Door", `
-<<if $time gte 1260 or $time lt 420>>
-  A note: "Sleeping. Please don't wake me."
-  <<link "Wait until morning">><<set $time to 420>><<goto "Danny Room Door">><</link>>
-<<elseif $schoolDay and $time gte 480 and $time lt 900>>
-  A note: "At school. Back later."
-  <<link "Leave">><<goto "Orphanage Hallway">><</link>>
-<<else>>
-  <<link "Knock and enter">><<goto "Danny Room">><</link>>
-  <<link "Leave">><<goto "Orphanage Hallway">><</link>>
-<</if>>
-    `);
-
-    addPassage("Danny Room", `
-You enter Danny's room. <<npc "Danny">> looks up.
-<<if $dannyIntro isnot 1>>
-  <<set $dannyIntro to 1>>
-  "H-hey... I'm Danny. I live here too. I... have a weak bladder. Please don't tell Bailey."
-  <<love "Danny" 5>>
-<</if>>
-<<link "Talk">><<love "Danny" 2>><<goto "Danny Room">><</link>>
-<<link "Help with control training">><<set $danny.control += 5>><<love "Danny" 3>><<goto "Danny Room">><</link>>
-<<link "Offer dependency care">><<set $danny.dependency += 5>><<love "Danny" 4>><<goto "Danny Room">><</link>>
-<<link "Leave">><<goto "Orphanage Hallway">><</link>>
-    `);
-
-    addPassage("Danny First Meeting Canteen", `
-In the canteen Danny nearly bumps into you.
-"S-sorry! I'm Danny. We both live at the orphanage, right?"
-<<link "Continue">><<set $dannyIntro to 1>><<goto "School Canteen">><</link>>
-    `);
-
-    // Simple schedule flags
-    window.updateDannySchedule = function () {
-      if (typeof State === "undefined") return;
-      var V = State.variables;
-      var hour = Math.floor(V.time / 60);
-      V.dannySleeping = (hour >= 21 || hour < 7);
-      V.dannyAtSchool = (hour >= 8 && hour < 15 && V.schoolDay);
-    };
-
     done = true;
-    console.log("[Danny] Registered + skeleton schedule/passages ready");
-    console.log("[Danny] Test passages: Danny Room Door, Danny Room, Danny First Meeting Canteen");
+    console.log("[Danny] Full slot registered. Index:", V.NPCNameList.indexOf(NAME));
   }
 
   function tryInit() {
