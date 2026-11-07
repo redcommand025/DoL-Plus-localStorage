@@ -1,31 +1,34 @@
 :: Danny Room Door [danny]
 <<if $time gte 1260 or $time lt 420>>
-  A note on the door: "Sleeping. Please don't wake me."
-  <<link "Wait until morning">><<set $time to 420>><<goto "Danny Room Door">><</link>>
+A note on the door: "Sleeping. Please don't wake me."
+<<link [[Wait until morning|Danny Room Door]]>><<set $time to 420>><</link>>
 <<elseif $schoolDay and $time gte 480 and $time lt 900>>
-  A note: "At school. Back later."
-  <<link "Leave">><<goto "Bedroom">><</link>>
+A note: "At school. Back later."
+<<link [[Leave|Bedroom]]>><</link>>
 <<else>>
-  <<link "Knock and enter">><<goto "Danny Room">><</link>>
-  <<link "Leave">><<goto "Bedroom">><</link>>
+<<link [[Knock and enter|Danny Room]]>><</link>>
+<<link [[Leave|Bedroom]]>><</link>>
 <</if>>
 
 :: Danny Room [danny]
+<<if C.npc.Danny is undefined>>
+  <<newNamedNpc {nam: "Danny", title: "dependent", insecurity: "weak", teen: 1, adult: 0, type: "human", pronoun: "f", gender: "f"}>>
+<</if>>
 You enter Danny's room. <<npc "Danny">> looks up.
 <<if $dannyIntro isnot 1>>
   <<set $dannyIntro to 1>>
   "H-hey... I'm Danny. I live here too. I have a weak bladder. Please don't tell Bailey."
   <<love "Danny" 5>>
 <</if>>
-<<link "Talk">><<love "Danny" 2>><<goto "Danny Room">><</link>>
-<<link "Help with control training">><<set $danny.control += 5>><<love "Danny" 3>><<goto "Danny Room">><</link>>
-<<link "Offer dependency care">><<set $danny.dependency += 5>><<love "Danny" 4>><<goto "Danny Room">><</link>>
-<<link "Leave">><<goto "Bedroom">><</link>>
+<<link [[Talk|Danny Room]]>><<love "Danny" 2>><</link>>
+<<link [[Help with control training|Danny Room]]>><<set $danny.control += 5>><<love "Danny" 3>><</link>>
+<<link [[Offer dependency care|Danny Room]]>><<set $danny.dependency += 5>><<love "Danny" 4>><</link>>
+<<link [[Leave|Bedroom]]>><</link>>
 
 :: Danny First Meeting Canteen [danny]
 In the canteen Danny nearly bumps into you.
 "S-sorry! I'm Danny. We both live at the orphanage, right?"
-<<link "Continue">><<set $dannyIntro to 1>><<goto "School Canteen">><</link>>
+<<link [[Continue|School Canteen]]>><<set $dannyIntro to 1>><</link>>
 
 :: Widgets Danny [widget danny]
 <<widget "dannyroom_link">>
