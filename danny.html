@@ -6,17 +6,41 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body { margin: 0; background: #111; color: #eee; font-family: sans-serif; }
-    #bar { padding: 8px; background: #222; font-size: 13px; white-space: pre-wrap; }
-    iframe { width: 100%; height: calc(100vh - 50px); border: none; }
+    #bar { padding: 8px; background: #222; font-size: 13px; }
+    #bar button { margin: 4px 6px 0 0; padding: 6px 10px; background: #444; color: #fff; border: 1px solid #666; border-radius: 4px; }
+    iframe { width: 100%; height: calc(100vh - 70px); border: none; }
   </style>
 </head>
 <body>
-  <div id="bar">Loading game + Danny…</div>
+  <div id="bar">
+    Loading game + Danny…
+    <div>
+      <button onclick="jump('Danny Room Door')">Danny Room Door</button>
+      <button onclick="jump('Danny Room')">Danny Room</button>
+    </div>
+  </div>
   <iframe id="game" src="index.html"></iframe>
   <script>
     var frame = document.getElementById("game");
     var bar = document.getElementById("bar");
     var injected = false;
+
+    function jump(passage) {
+      try {
+        var win = frame.contentWindow;
+        if (win && win.SugarCube && win.SugarCube.State && win.SugarCube.State.display) {
+          win.SugarCube.State.display(passage);
+          bar.childNodes[0].textContent = "Jumped to " + passage;
+        } else if (win && win.State && win.State.display) {
+          win.State.display(passage);
+          bar.childNodes[0].textContent = "Jumped to " + passage;
+        } else {
+          bar.childNodes[0].textContent = "Game not ready for jump";
+        }
+      } catch (e) {
+        bar.childNodes[0].textContent = "Jump failed: " + e.message;
+      }
+    }
 
     function ensureDanny(win) {
       try {
@@ -34,7 +58,6 @@
           }
         }
 
-        // Skeleton passages (idempotent)
         if (typeof win.Story !== "undefined" && typeof win.Story.add === "function") {
           function addP(name, content) {
             if (win.Story.has(name)) return;
@@ -66,20 +89,6 @@
           );
         }
 
-        // Inject Danny link into cheats teleport if present
-        try {
-          var cheatDiv = win.document.querySelector(".settingsHeader.options");
-          if (cheatDiv && !win.document.getElementById("danny-cheat-link")) {
-            var link = win.document.createElement("div");
-            link.id = "danny-cheat-link";
-            link.innerHTML = '<br><span class="gold">Danny (Test)</span><br>' +
-              '<a href="javascript:void(0)" onclick="SugarCube.State.display(\'Danny Room Door\')">Danny Room Door</a><br>' +
-              '<a href="javascript:void(0)" onclick="SugarCube.State.display(\'Danny Room\')">Danny Room</a>';
-            cheatDiv.parentNode.insertBefore(link, cheatDiv.nextSibling);
-          }
-        } catch (e) {}
-
-        // Persistent watcher: re-register on every passage or if registry is cleared
         if (!win._dannyWatcher) {
           win._dannyWatcher = setInterval(function () {
             try {
@@ -91,7 +100,6 @@
             } catch (e) {}
           }, 2000);
         }
-
         return true;
       } catch (e) {
         return false;
@@ -103,21 +111,19 @@
         var win = frame.contentWindow;
         if (win && ensureDanny(win)) {
           var avail = (win.getAvailableModLIs && win.getAvailableModLIs()) || [];
-          bar.textContent = "Danny active. Available: " + (avail.length ? avail.join(", ") : "(checking…)") +
-                            "\nWatcher running (survives title/restart).";
+          bar.childNodes[0].textContent = "Danny active. Available: " + (avail.length ? avail.join(", ") : "(checking…)") + "  ";
           injected = true;
         } else if (!injected) {
-          bar.textContent = "Waiting for game…";
+          bar.childNodes[0].textContent = "Waiting for game…  ";
         }
       } catch (e) {
-        if (!injected) bar.textContent = "Waiting…";
+        if (!injected) bar.childNodes[0].textContent = "Waiting…  ";
       }
     }
 
     frame.onload = function () {
-      bar.textContent = "Game frame loaded…";
+      bar.childNodes[0].textContent = "Game frame loaded…  ";
       setTimeout(tick, 800);
-      // Keep checking so title-page returns / restarts get re-injected
       setInterval(tick, 3000);
     };
   </script>
