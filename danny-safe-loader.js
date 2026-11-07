@@ -1,125 +1,87 @@
 /**
  * Danny – safe post-init registration
- * Creates a complete $NPCName slot so npcSettingsMenu does not crash.
+ * Uses <<newNamedNpc>> so the slot is a proper clone of setup.baseNNPC
+ * and $NPCName / $NPCNameList stay in sync.
+ * Does NOT touch setup.NPCNameList until the slot exists.
  */
 (function () {
   "use strict";
 
   var attempts = 0;
-  var MAX = 60;
+  var MAX = 80;
   var done = false;
 
   function ready() {
     return typeof setup !== "undefined" &&
            typeof State !== "undefined" && State.variables &&
            typeof window.registerModLI === "function" &&
-           Array.isArray(setup.NPCNameList) &&
+           typeof Wikifier !== "undefined" &&
            typeof Story !== "undefined";
-  }
-
-  function makeFullSlot() {
-    // Match the fields npcSettingsMenu and baseNNPC expect
-    return {
-      nam: "Danny",
-      description: "Danny",
-      fullDescription: "Danny",
-      title: "dependent",
-      insecurity: "weak",
-      pronoun: "f",
-      gender: "f",
-      adult: 0,
-      teen: 1,
-      type: "human",
-      init: 0,
-      intro: 0,
-      aware: 0,
-      name_known: 0,
-      love: 0,
-      lust: 0,
-      dom: 0,
-      trauma: 0,
-      rage: 0,
-      trust: 0,
-      purity: 0,
-      corruption: 0,
-      penis: 0,
-      vagina: 1,
-      penissize: 0,
-      penisdesc: "none",
-      breastsize: 2,
-      breastdesc: 0,
-      breastsdesc: 0,
-      bottomsize: 0,
-      ballssize: 0,
-      maxOrgasms: 1,
-      orgasm: 0,
-      skincolour: "white",
-      eyeColour: "blue",
-      hairColour: "brown",
-      chastity: { penis: "", vagina: "", anus: "" },
-      control: 30,
-      dependency: 20,
-      bladder: 0,
-      diaperState: "dry",
-      accidentCount: 0
-    };
   }
 
   function registerDanny() {
     if (done) return;
     var NAME = "Danny";
+    var V = State.variables;
 
+    // 1. Exclusive LI registry
     try { window.registerModLI(NAME); } catch (e) {}
 
-    // Keep setup.NPCNameList in sync
-    if (setup.NPCNameList.indexOf(NAME) === -1) {
-      setup.NPCNameList.push(NAME);
-    }
-
-    var V = State.variables;
+    // 2. Ensure lists exist
     if (!Array.isArray(V.NPCNameList)) V.NPCNameList = [];
     if (!Array.isArray(V.NPCName)) V.NPCName = [];
 
-    var idx = V.NPCNameList.indexOf(NAME);
-    var slot = makeFullSlot();
-
-    if (idx === -1) {
-      V.NPCNameList.push(NAME);
-      V.NPCName.push(slot);
-    } else {
-      // Patch existing slot so required fields exist
-      var existing = V.NPCName[idx] || {};
-      for (var k in slot) {
-        if (existing[k] === undefined) existing[k] = slot[k];
+    // 3. Use the game's own newNamedNpc widget (clones baseNNPC)
+    if (V.NPCNameList.indexOf(NAME) === -1) {
+      try {
+        Wikifier.wikifyEval(
+          '<<newNamedNpc {nam: "Danny", title: "dependent", insecurity: "weak", teen: 1, adult: 0, type: "human", pronoun: "f", gender: "f", maxOrgasms: 1}>>'
+        );
+      } catch (e) {
+        console.warn("[Danny] newNamedNpc failed:", e);
       }
-      V.NPCName[idx] = existing;
     }
 
-    // Skeleton passages (unchanged)
-    if (typeof Story.add === "function" && !Story.has("Danny Room")) {
-      Story.add({
-        name: "Danny Room",
-        tags: "danny",
-        content: 'Danny\\\'s room.\\n<<link "Leave">><<goto "Orphanage Hallway">><</link>>'
-      });
+    // 4. Verify and patch if needed
+    var idx = V.NPCNameList.indexOf(NAME);
+    if (idx !== -1 && V.NPCName[idx]) {
+      var slot = V.NPCName[idx];
+      if (slot.nam === undefined) slot.nam = NAME;
+      if (slot.title === undefined) slot.title = "dependent";
+      if (slot.pronoun === undefined) slot.pronoun = "f";
+      if (slot.maxOrgasms === undefined) slot.maxOrgasms = 1;
+      if (slot.gender === undefined) slot.gender = "f";
+      // custom fields
+      if (slot.control === undefined) slot.control = 30;
+      if (slot.dependency === undefined) slot.dependency = 20;
+      if (slot.bladder === undefined) slot.bladder = 0;
+      if (slot.diaperState === undefined) slot.diaperState = "dry";
+    } else {
+      console.warn("[Danny] Slot still missing after newNamedNpc");
+      return; // don't mark done so we can retry
+    }
+
+    // 5. Now safe to add to setup.NPCNameList (for future new games)
+    if (Array.isArray(setup.NPCNameList) && setup.NPCNameList.indexOf(NAME) === -1) {
+      setup.NPCNameList.push(NAME);
     }
 
     done = true;
-    console.log("[Danny] Full slot registered. Index:", V.NPCNameList.indexOf(NAME));
+    console.log("[Danny] Registered cleanly. Index:", idx, "nam:", V.NPCName[idx].nam);
   }
 
   function tryInit() {
     attempts++;
     if (ready()) {
       registerDanny();
-      return;
+      if (done) return;
     }
     if (attempts < MAX) setTimeout(tryInit, 500);
   }
 
   if (document.readyState === "complete" || document.readyState === "interactive") {
-    setTimeout(tryInit, 300);
+    setTimeout(tryInit, 500);
   } else {
-    document.addEventListener("DOMContentLoaded", function () { setTimeout(tryInit, 300); });
+    document.addEventListener("DOMContentLoaded", function () { setTimeout(tryInit, 500); });
   }
 })();
