@@ -89,6 +89,27 @@
           );
         }
 
+        // Inject persistent sidebar link
+        try {
+          var barBody = win.document.getElementById("ui-bar-body") || win.document.getElementById("menu");
+          if (barBody && !win.document.getElementById("danny-sidebar-link")) {
+            var div = win.document.createElement("div");
+            div.id = "danny-sidebar-link";
+            div.style.marginTop = "1em";
+            div.innerHTML = '<a href="javascript:void(0)" style="color:#8cf;display:block;padding:4px;">Danny Room</a>';
+            div.querySelector("a").onclick = function() {
+              try {
+                if (win.SugarCube && win.SugarCube.State && win.SugarCube.State.display) {
+                  win.SugarCube.State.display("Danny Room");
+                } else if (win.State && win.State.display) {
+                  win.State.display("Danny Room");
+                }
+              } catch(e) {}
+            };
+            barBody.appendChild(div);
+          }
+        } catch (e) {}
+
         if (!win._dannyWatcher) {
           win._dannyWatcher = setInterval(function () {
             try {
