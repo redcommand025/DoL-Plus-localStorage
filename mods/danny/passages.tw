@@ -1,0 +1,34 @@
+:: Danny Room Door [danny]
+<<if $time gte 1260 or $time lt 420>>
+A note on the door: "Sleeping. Please don't wake me."
+<<link [[Wait until morning|Danny Room Door]]>><<set $time to 420>><</link>>
+<<elseif $schoolDay and $time gte 480 and $time lt 900>>
+A note: "At school. Back later."
+<<link [[Leave|Bedroom]]>><</link>>
+<<else>>
+<<link [[Knock and enter|Danny Room]]>><</link>>
+<<link [[Leave|Bedroom]]>><</link>>
+<</if>>
+
+:: Danny Room [danny]
+You enter Danny's room. <<npc "Danny">> looks up.
+<<if $dannyIntro isnot 1>>
+  <<set $dannyIntro to 1>>
+  "H-hey... I'm Danny. I live here too. I have a weak bladder. Please don't tell Bailey."
+  <<npcincr Danny love 5>>
+<</if>>
+<<link [[Talk|Danny Room]]>><<npcincr Danny love 2>><</link>>
+<<link [[Help with control training|Danny Room]]>><<set $danny.control += 5>><<npcincr Danny love 3>><</link>>
+<<link [[Offer dependency care|Danny Room]]>><<set $danny.dependency += 5>><<npcincr Danny love 4>><</link>>
+<<link [[Leave|Bedroom]]>><</link>>
+
+:: Danny First Meeting Canteen [danny]
+In the canteen Danny nearly bumps into you.
+"S-sorry! I'm Danny. We both live at the orphanage, right?"
+<<link [[Continue|School Canteen]]>><<set $dannyIntro to 1>><</link>>
+
+:: Widgets Danny [widget danny]
+<<widget "dannyroom_link">>
+  <<bedroomicon>><<link [[Danny's room (0:01)|Danny Room Door]]>><<pass 1>><</link>>
+  <br>
+<</widget>>
